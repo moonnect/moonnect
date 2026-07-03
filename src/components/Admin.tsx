@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PortfolioData, PortfolioItem, ExperienceItem, BtsImage } from '@/types';
-import { Trash2, Plus, LogOut, Save, Crop as CropIcon, X, Eye } from 'lucide-react';
+import { Trash2, Plus, LogOut, Save, Crop as CropIcon, X, Eye, Copy, Check } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getYoutubeId, getProcessedImageUrl } from '@/lib/utils';
 
@@ -135,6 +135,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
   } | null>(null);
   // Optional aspect ratio - default to 16/9 for video/portfolio, can be adjusted
   const [aspect, setAspect] = useState(16 / 9);
+  const [copied, setCopied] = useState(false);
 
   const onCropComplete = (_: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -269,6 +270,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
             <TabsTrigger value="experience">경력</TabsTrigger>
             <TabsTrigger value="gear">장비</TabsTrigger>
             <TabsTrigger value="bts">현장 사진</TabsTrigger>
+            <TabsTrigger value="export" className="text-violet-400 font-bold">GitHub 배포 지원</TabsTrigger>
           </TabsList>
 
           <TabsContent value="portfolio">
@@ -1622,6 +1624,69 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                   />
                 </label>
              </div>
+          </TabsContent>
+
+          <TabsContent value="export">
+            <Card className="bg-zinc-900 border-zinc-800 text-zinc-100 p-6 rounded-3xl">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                  🚀 GitHub 배포 지원 및 설정 데이터 내보내기
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-0 space-y-6">
+                <div className="bg-zinc-950 p-4 rounded-xl border border-white/5 text-sm leading-relaxed text-zinc-300 space-y-3">
+                  <p>
+                    <strong className="text-amber-400">⚠️ 왜 GitHub에 배포하면 수정한 내용이 안 보이나요?</strong>
+                  </p>
+                  <p>
+                    관리자 대시보드에서 수정한 내용(직접 업로드한 사진, 문구 변경 등)은 현재 접속 중인 웹 브라우저의 <strong>로컬 저장소(localStorage)</strong>에만 저장됩니다.
+                    따라서 GitHub 배포(GitHub Pages 등)를 통해 새로운 주소로 사이트를 띄우면 브라우저 저장소가 비어 있으므로 초기 기본값으로 나타납니다.
+                  </p>
+                  <p>
+                    <strong className="text-violet-400">💡 해결 방법: 설정 데이터 영구 적용하기</strong>
+                  </p>
+                  <p>
+                    아래 버튼을 눌러 현재 수정한 전체 설정 데이터를 복사한 후, <strong>AI 채팅창에 붙여넣어 "이 설정 데이터로 constants.ts 파일을 업데이트해 줘"</strong>라고 말씀해 주세요.
+                    제가 소스 코드에 기본 데이터로 영구 기록해 드립니다! 적용된 후 빌드 및 배포하시면 전 세계 누구나 동일하게 꾸며진 화면을 보실 수 있습니다.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-400">현재 수정된 전체 포트폴리오 데이터 (JSON)</span>
+                    <Button
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(localData, null, 2));
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="bg-violet-600 hover:bg-violet-700 text-xs font-bold h-8 px-3 rounded-lg flex items-center gap-1.5 text-white"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" /> 복사 완료!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" /> 현재 설정 데이터 클립보드 복사
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <textarea
+                    readOnly
+                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                    value={JSON.stringify(localData, null, 2)}
+                    className="w-full h-80 bg-zinc-950 border border-zinc-800 rounded-xl p-4 font-mono text-xs text-zinc-400 focus:outline-none focus:border-violet-500 cursor-pointer"
+                    placeholder="설정 데이터가 여기에 표시됩니다."
+                  />
+                  <p className="text-[11px] text-zinc-500 text-center">
+                    💡 위 상자를 클릭하면 전체 선택됩니다. 복사한 텍스트를 AI 채팅창에 보내주세요!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
