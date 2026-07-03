@@ -818,7 +818,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                     <div className="space-y-2 col-span-2">
                        <Label className="text-[10px] text-zinc-500">Contact 메인 문구 (Footer Headline)</Label>
                        <Input 
-                         value={localData.sectionTitles?.contactHeadline || "Let's Build Something Great"} 
+                         value={localData.sectionTitles?.contactHeadline || "다음 프레임의 과정을 함께하고 싶습니다."} 
                          onChange={e => setLocalData({
                            ...localData,
                            sectionTitles: { ...(localData.sectionTitles || {}), contactHeadline: e.target.value }
@@ -1023,7 +1023,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                       <div className="space-y-2 col-span-1 md:col-span-2">
                         <Label className="text-[10px] text-zinc-500">헤드라인 텍스트 (Headline Text) - 줄바꿈은 \n 으로 구분</Label>
                         <Input 
-                          value={localData.contactStyles?.headlineText ?? localData.sectionTitles?.contactHeadline ?? "Let's Build \nSomething Great"}
+                          value={localData.contactStyles?.headlineText ?? localData.sectionTitles?.contactHeadline ?? "다음 프레임의 과정을\n함께하고 싶습니다."}
                           onChange={e => {
                             const styles = localData.contactStyles || {};
                             setLocalData({

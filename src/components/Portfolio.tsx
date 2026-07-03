@@ -646,7 +646,7 @@ export default function Portfolio({
                       <label className="text-[9px] text-zinc-400 font-bold uppercase block">메인 헤드라인 (\n 으로 줄바꿈 구분)</label>
                       <input 
                         type="text"
-                        value={data.contactStyles?.headlineText ?? data.sectionTitles?.contactHeadline ?? "Let's Build \nSomething Great"}
+                        value={data.contactStyles?.headlineText ?? data.sectionTitles?.contactHeadline ?? "다음 프레임의 과정을\n함께하고 싶습니다."}
                         onChange={(e) => updateContactHeadline(e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white w-full focus:border-violet-500 font-medium"
                       />
@@ -811,7 +811,7 @@ export default function Portfolio({
                             badgeAlign: "center",
                             headlineTracking: "tracking-tight"
                           });
-                          updateContactHeadline("Let's Build\nSomething Great");
+                          updateContactHeadline("다음 프레임의 과정을\n함께하고 싶습니다.");
                         }}
                         className="text-left text-[11px] p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 hover:bg-violet-500/5 text-zinc-350 hover:text-white transition-all font-semibold flex flex-col gap-0.5 cursor-pointer"
                       >
@@ -863,7 +863,7 @@ export default function Portfolio({
                 data.contactStyles?.badgeAlign === 'right' ? 'text-right' : 
                 'text-left'
               }`}>
-                {data.contactStyles?.headlineText?.replace(/\\n/g, '\n') || data.sectionTitles?.contactHeadline || "Let's Build \nSomething Great"}
+                {data.contactStyles?.headlineText?.replace(/\\n/g, '\n') || data.sectionTitles?.contactHeadline || "다음 프레임의 과정을\n함께하고 싶습니다."}
               </h3>
 
               {/* Motto / Connection Phrase */}
