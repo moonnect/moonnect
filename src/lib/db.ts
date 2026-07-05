@@ -15,26 +15,24 @@ export interface DbConfig {
     storageBucket: string;
     messagingSenderId: string;
     appId: string;
-    databaseId?: string;
+    databaseURL?: string;
   };
 }
 
-const CONFIG_STORAGE_KEY = "db_config_v1";
-const DATA_STORAGE_KEY = "portfolio_data_v1";
 const FIRESTORE_DOC_PATH = "portfolio/current_data";
 
+// 승문님의 Firebase 고유 주소 완벽 고정
 export function getDbConfig(): DbConfig {
-  // 환경변수가 있든 없든, 강제로 firebase 모드로 작동하게 만듭니다.
   return {
     provider: "firebase",
     firebase: {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-      appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-      databaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || "",
+      apiKey: "AIzaSyDr61jUQ9zuKbY-wrqumLESFvpop4F7gZY",
+      authDomain: "gen-lang-client-0694560870.firebaseapp.com",
+      projectId: "gen-lang-client-0694560870",
+      storageBucket: "gen-lang-client-0694560870.firebasestorage.app",
+      messagingSenderId: "877872111619",
+      appId: "1:877872111619:web:f7088e6736b4236a3e6e36",
+      databaseURL: "https://gen-lang-client-0694560870-default-rtdb.firebaseio.com"
     }
   };
 }
@@ -45,7 +43,8 @@ let firebaseAppInstance: any = null;
 let firestoreInstance: any = null;
 let rtdbInstance: any = null;
 
-function getFirebaseApp(config: DbConfig) {
+function getFirebaseApp() {
+  const config = getDbConfig();
   if (!firebaseAppInstance) {
     const apps = getApps();
     if (apps.length > 0) {
@@ -57,51 +56,45 @@ function getFirebaseApp(config: DbConfig) {
   return firebaseAppInstance;
 }
 
-function getFirestoreDB(config: DbConfig) {
-  const app = getFirebaseApp(config);
-  if (!firestoreInstance) firestoreInstance = getFirestore(app);
+function getFirestoreDB() {
+  if (!firestoreInstance) firestoreInstance = getFirestore(getFirebaseApp());
   return firestoreInstance;
 }
 
-function getRealtimeDB(config: DbConfig) {
-  const app = getFirebaseApp(config);
-  if (!rtdbInstance) rtdbInstance = getDatabase(app);
+function getRealtimeDB() {
+  if (!rtdbInstance) rtdbInstance = getDatabase(getFirebaseApp());
   return rtdbInstance;
 }
 
-// 핵심 기능: Firebase 서버에 데이터가 없거나 깡통이면, 파일에 있는 진짜 데이터를 서버에 강제로 쑤셔 넣습니다!
+// 핵심 기능: Firebase 서버를 조회하여 데이터가 비어있으면 진짜 데이터(constants.final_portfolio)를 서버에 강제로 심어줍니다.
 export async function loadPortfolioData(): Promise<{ data: PortfolioData; provider: DbProvider }> {
-  const config = getDbConfig();
   let loadedData: PortfolioData | null = null;
 
   try {
-    const rtdb = getDatabase(getFirebaseApp(config));
+    const rtdb = getRealtimeDB();
     const snapshot = await rtdbGet(ref(rtdb, "portfolio/current_data"));
     if (snapshot.exists()) {
       const dbData = snapshot.val() as PortfolioData;
-      // 데이터가 존재하고 전승문 이름이 정상적으로 들어있는지 확인
       if (dbData && dbData.name && dbData.name.includes("전승문")) {
         loadedData = dbData;
       }
     }
   } catch (err) {
-    console.warn("서버 로드 실패, 백업 절차 진행");
+    console.warn("서버 로드 시도 중...");
   }
 
-  // 서버에 진짜 데이터가 없다면? 승문님의 진짜 파일 데이터를 서버에 즉시 저장(시딩)합니다.
+  // 데이터베이스가 텅 비어있다면 진짜 데이터를 최초 1회 쏘아 올립니다.
   if (!loadedData) {
-    console.log("Firebase 서버에 승문님의 진짜 데이터를 전송합니다...");
-    const realData = INITIAL_DATA; // constants.final_portfolio에서 가져온 진짜 데이터
-
+    const realData = INITIAL_DATA; 
     try {
-      const rtdb = getRealtimeDB(config);
+      const rtdb = getRealtimeDB();
       await rtdbSet(ref(rtdb, "portfolio/current_data"), realData);
       
-      const db = getFirestoreDB(config);
+      const db = getFirestoreDB();
       await setDoc(doc(db, FIRESTORE_DOC_PATH), realData);
-      console.log("Firebase 서버 전송 완료!");
+      console.log("Firebase 서버에 승문님의 데이터를 성공적으로 안착시켰습니다!");
     } catch (e) {
-      console.error("서버 전송 중 에러 발생:", e);
+      console.error("데이터 저장 실패:", e);
     }
     return { data: realData, provider: "firebase" };
   }
@@ -110,11 +103,10 @@ export async function loadPortfolioData(): Promise<{ data: PortfolioData; provid
 }
 
 export async function savePortfolioData(data: PortfolioData): Promise<{ success: boolean; provider: DbProvider; error?: string }> {
-  const config = getDbConfig();
   try {
-    const rtdb = getRealtimeDB(config);
+    const rtdb = getRealtimeDB();
     await rtdbSet(ref(rtdb, "portfolio/current_data"), data);
-    const db = getFirestoreDB(config);
+    const db = getFirestoreDB();
     await setDoc(doc(db, FIRESTORE_DOC_PATH), data);
     return { success: true, provider: "firebase" };
   } catch (err: any) {
