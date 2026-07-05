@@ -878,95 +878,25 @@ export default function Portfolio({
           </div>
 
           {/* Category Navigation Bar */}
-          <div className="flex flex-col gap-4 mb-24 sticky top-24 z-20 py-4 bg-[#08070b]/40 backdrop-blur-md -mx-4 px-4 rounded-2xl border border-white/5 md:bg-transparent md:backdrop-blur-none md:static md:border-none md:px-0 md:mx-0">
-            <div className="flex flex-wrap gap-3">
-              {Object.keys(groupedItems).map((cat) => {
-                const isCatActive = activeCategory === cat || (!activeCategory && Object.keys(groupedItems)[0] === cat);
-                const hasInstagram = groupedItems[cat]?.some(item => item.videoUrl && item.videoUrl.includes('instagram'));
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setActiveCategory(cat);
-                      document.getElementById(`category-${cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className={`liquid-glass text-[10px] font-black tracking-[0.2em] px-8 py-3 rounded-xl border transition-all duration-500 flex items-center gap-2 ${
-                      isCatActive 
-                        ? 'border-violet-500 bg-violet-500/15 text-white shadow-lg shadow-violet-500/10' 
-                        : 'border-white/10 hover:border-violet-500/40 text-white/40 hover:text-white hover:bg-violet-500/10'
-                    }`}
-                  >
-                    <span>{data.categoryTitles?.[cat] || cat}</span>
-                    {hasInstagram && (
-                      <Instagram size={11} className="text-pink-500" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Instagram links under Category tabs */}
-            {(() => {
-              const currentCat = activeCategory || Object.keys(groupedItems)[0] || '';
-              const activeItems = groupedItems[currentCat] || [];
-              const instagramItems = activeItems.filter(item => item.videoUrl && item.videoUrl.includes('instagram'));
-              if (instagramItems.length === 0) return null;
-              return (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-wrap gap-3 p-3 rounded-2xl bg-pink-500/5 border border-pink-500/10 backdrop-blur-3xl w-full"
-                >
-                  <div className="flex items-center gap-1.5 px-2 text-pink-400 font-extrabold text-[10px] tracking-wider uppercase">
-                    <Instagram size={12} className="text-pink-500 animate-pulse" />
-                    <span>Instagram 퀵링크</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {instagramItems.map((instItem) => (
-                      <a
-                        key={instItem.id}
-                        href={instItem.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 hover:text-white border border-pink-500/20 hover:border-pink-500/40 px-3 py-1.5 rounded-lg text-[10px] font-extrabold tracking-wider transition-all duration-300 shadow-md"
-                      >
-                        <span>{instItem.title.replace('Photo', '').replace('Official', '').trim()} 바로가기</span>
-                        <ArrowRight size={10} className="opacity-70" />
-                      </a>
-                    ))}
-                  </div>
-                </motion.div>
-              );
-            })()}
+          <div className="flex flex-wrap gap-3 mb-24 sticky top-24 z-20 py-4 bg-[#08070b]/40 backdrop-blur-md -mx-4 px-4 rounded-2xl border border-white/5 md:bg-transparent md:backdrop-blur-none md:static md:border-none md:px-0 md:mx-0">
+            {Object.keys(groupedItems).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => document.getElementById(`category-${cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="liquid-glass text-[10px] font-black tracking-[0.2em] px-8 py-3 rounded-xl border border-white/10 hover:border-violet-500/40 text-white/40 hover:text-white hover:bg-violet-500/10 transition-all duration-500"
+              >
+                {data.categoryTitles?.[cat] || cat}
+              </button>
+            ))}
           </div>
 
           <div className="space-y-40">
-            {Object.entries(groupedItems).map(([category, items]) => {
-              const categoryInstagrams = (items as PortfolioItem[]).filter(item => item.videoUrl && item.videoUrl.includes('instagram'));
-              return (
-                <div key={category} id={`category-${category}`} className="scroll-mt-32">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-16">
-                    <div className="flex items-center gap-6 flex-1">
-                      <h4 className="text-2xl font-black text-white/20 tracking-[0.4em] whitespace-nowrap">{data.categoryTitles?.[category] || category}</h4>
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-white/10 to-transparent" />
-                    </div>
-                    {categoryInstagrams.length > 0 && (
-                      <div className="flex flex-wrap gap-3">
-                        {categoryInstagrams.map((instItem) => (
-                          <a
-                            key={instItem.id}
-                            href={instItem.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-600/20 to-violet-600/20 hover:from-pink-600/30 hover:to-violet-600/30 text-pink-400 hover:text-white border border-pink-500/30 hover:border-pink-500/50 px-4 py-2 rounded-xl text-xs font-bold tracking-wider transition-all duration-300 shadow-lg shadow-pink-500/5"
-                          >
-                            <Instagram size={13} className="text-pink-500" />
-                            <span>{instItem.title.replace('Photo', '').replace('Official', '').trim()} 바로가기</span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            {Object.entries(groupedItems).map(([category, items]) => (
+              <div key={category} id={`category-${category}`} className="scroll-mt-32">
+                <div className="flex items-center gap-6 mb-16">
+                  <h4 className="text-2xl font-black text-white/20 tracking-[0.4em] whitespace-nowrap">{data.categoryTitles?.[category] || category}</h4>
+                  <div className="flex-1 h-[1px] bg-gradient-to-r from-white/10 to-transparent" />
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-24">
                   {(() => {
@@ -1154,8 +1084,7 @@ export default function Portfolio({
                   ))}
                 </div>
               </div>
-            );
-          })}
+            ))}
           </div>
         </div>
       </section>
@@ -1635,6 +1564,18 @@ export default function Portfolio({
                     <span className="text-[10px] font-black tracking-widest text-violet-400">Role</span>
                   </div>
                   <p className="text-slate-300 text-sm font-medium pt-1">{selectedGalleryItem.role}</p>
+                </div>
+              )}
+              {selectedGalleryItem.videoUrl && (selectedGalleryItem.videoUrl.includes('instagram') || selectedGalleryItem.videoUrl.startsWith('http')) && (
+                <div className="mt-6">
+                  <Button 
+                    id="btn-instagram-shortcut"
+                    onClick={() => window.open(selectedGalleryItem.videoUrl, '_blank')}
+                    className="bg-pink-600 hover:bg-pink-700 text-white font-bold tracking-widest text-xs px-6 py-3.5 h-auto rounded-xl border border-pink-500/20 flex items-center gap-1.5 w-fit shadow-lg shadow-pink-500/10"
+                  >
+                    <Instagram size={14} />
+                    <span>Instagram 바로가기</span>
+                  </Button>
                 </div>
               )}
 
