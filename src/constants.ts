@@ -16,6 +16,12 @@ export const INITIAL_DATA: PortfolioData = {
     email: "filmmaker@portfolio.com",
     phone: "010-0000-0000",
   },
+  stats: [
+    { id: "stat1", label: "프로젝트 참여", value: "100+", icon: "Camera" },
+    { id: "stat2", label: "촬영·현장 경험", value: "150+", icon: "Clapperboard" },
+    { id: "stat3", label: "협업 팀/브랜드", value: "20+", icon: "Users" },
+    { id: "stat4", label: "실무 경험", value: "1년+", icon: "Calendar" },
+  ],
   items: [
     // SONY a7c2
     { id: "sony1", title: "SONY a7c2 [제주]", description: "원핸드 컴팩트 풀프레임 A7C2 ｜ 7 Stop", videoUrl: "https://www.youtube.com/embed/nHrcGvIHjhE", category: "SONY", order: 0, thumbnailUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=90&w=2000", role: "현장 촬영 및 B-roll 제작", group: "SONY a7c2 [제주]" },
@@ -138,6 +144,19 @@ export const INITIAL_DATA: PortfolioData = {
       title: "영상 업무 경력 (B)",
       description: "상업 광고 및 시네마틱 하이엔드 영상 프로젝트 촬영 감독"
     }
+  ],
+  gear: [
+    { id: "gear1", name: "SONY A7C2", imageUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=90&w=2000" },
+    { id: "gear2", name: "Gimbal Work", imageUrl: "https://images.unsplash.com/photo-1550948537-130a1ce83314?q=90&w=2000" },
+    { id: "gear3", name: "Handheld", imageUrl: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=90&w=2000" },
+    { id: "gear4", name: "Lighting", imageUrl: "https://images.unsplash.com/photo-1551334787-21e6bd3ab135?q=90&w=2000" },
+  ],
+  btsImages: [
+    {
+      id: "bts1",
+      url: "https://images.unsplash.com/photo-1492724441997-5dc865305da7?q=80&w=2070",
+      caption: "On set filming",
+    },
   ],
   categoryTitles: {
     'SONY': 'SONY CINEMATIC',

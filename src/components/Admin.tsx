@@ -1831,7 +1831,7 @@ export default function Admin({
                           ) : (
                             <>
                               <Wifi className="w-3.5 h-3.5" />
-                              연결 테스트 및 Firestore 데이터 활성화하기
+                              연결 테스트 및 Firebase (RTDB/Firestore) 활성화하기
                             </>
                           )}
                         </Button>
@@ -1851,10 +1851,10 @@ export default function Admin({
                             화면에 나타난 <code>const firebaseConfig = &#123; ... &#125;</code>의 항목별 내용을 위 입력창에 하나씩 복사해서 붙여넣습니다.
                           </li>
                           <li>
-                            좌측 메뉴에서 <strong>[빌드] ➔ [Firestore Database]</strong>를 클릭하고 <strong>[데이터베이스 만들기]</strong>를 실행합니다.
+                            좌측 메뉴에서 <strong>[빌드] ➔ [Realtime Database]</strong> 또는 <strong>[Firestore Database]</strong>를 클릭하고 데이터베이스 만들기를 완료합니다.
                           </li>
                           <li>
-                            위치 설정 후 다음 단계에서 보안 규칙을 <strong>[테스트 모드에서 시작]</strong>으로 선택하고 생성해 주세요. (또는 하단의 보안 규칙을 그대로 적용해 주세요.)
+                            규칙 탭에서 읽기/쓰기 권한을 모두 허용(<code>true</code>)으로 수정해 줍니다. (보안 규칙 예제 참고)
                           </li>
                         </ol>
 
