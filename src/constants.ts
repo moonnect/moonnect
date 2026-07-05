@@ -30,14 +30,14 @@ export const INITIAL_DATA: PortfolioData = {
     { id: "sony10", title: "SONY a7c2 [대관령]", description: "동화 같은 겨울 여행 Shot on A7C2", videoUrl: "https://www.youtube.com/embed/FG-ObNEz9hs", category: "SONY", order: 9, role: "메인 촬영 디렉팅", group: "SONY a7c2 [대관령]" },
 
     // BRAND AD / Instagram
-    { id: "flovit1", title: "Flovit 플로빗", description: "멀티비타민 이뮨샷 바이럴 필름 with 성해은", videoUrl: "https://www.youtube.com/embed/c5ljpzFU2v4", category: "BRAND AD", order: 10, thumbnailUrl: "https://images.unsplash.com/photo-1550133730-695473e544be?q=90&w=2000", role: "메인 촬영 및 구도 연출", group: "Flovit" },
-    { id: "flovit2", title: "Flovit 메이킹", description: "성해은 × 플로빗 메이킹 필름 대공개", videoUrl: "https://www.youtube.com/embed/lhaSxP41SkM", category: "BRAND AD", order: 11, thumbnailUrl: "https://images.unsplash.com/photo-1579353977828-2a4eab540b9a?q=90&w=2000", role: "현장 스케치 및 메이킹 촬영", group: "Flovit" },
+    { id: "flovit1", title: "Flovit 플로빗", description: "멀티비타민 이뮨샷 바이럴 필름 with 성해은", videoUrl: "https://www.instagram.com/reel/C2z3M_fS6zX/", category: "BRAND AD", order: 10, thumbnailUrl: "https://images.unsplash.com/photo-1550133730-695473e544be?q=90&w=2000", role: "메인 촬영 및 구도 연출", group: "Flovit" },
+    { id: "flovit2", title: "Flovit 메이킹", description: "성해은 × 플로빗 메이킹 필름 대공개", videoUrl: "https://www.instagram.com/reel/C2-N4KqS_3W/", category: "BRAND AD", order: 11, thumbnailUrl: "https://images.unsplash.com/photo-1579353977828-2a4eab540b9a?q=90&w=2000", role: "현장 스케치 및 메이킹 촬영", group: "Flovit" },
     // BRAND PHOTO (Reclassified from BRAND AD)
     { 
       id: "saynid1", 
       title: "SAYNID Photo Shoot", 
       description: "SAYNID 브랜드 홍보 사진 촬영", 
-      videoUrl: "", 
+      videoUrl: "https://www.instagram.com/p/C3P3S6Sy8W9/", 
       category: "BRAND PHOTO", 
       order: 12, 
       thumbnailUrl: "https://images.unsplash.com/photo-1549463599-231a4773822f?q=90&w=2000", // Minimalist look for CI placeholder
@@ -52,7 +52,7 @@ export const INITIAL_DATA: PortfolioData = {
       id: "cosegg1", 
       title: "COSEGG Official Photo", 
       description: "COSEGG 오피셜 브랜드 룩북 촬영", 
-      videoUrl: "", 
+      videoUrl: "https://www.instagram.com/p/C2_r8XLS2f4/", 
       category: "BRAND PHOTO", 
       order: 13, 
       thumbnailUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=90&w=2000", // Minimalist look for CI placeholder
@@ -67,7 +67,7 @@ export const INITIAL_DATA: PortfolioData = {
       id: "nonandnon1", 
       title: "NONANDNON Photo", 
       description: "NONANDNON 오피셜 콘텐츠 사진 촬영", 
-      videoUrl: "", 
+      videoUrl: "https://www.instagram.com/p/C27e8WyS7T_/", 
       category: "BRAND PHOTO", 
       order: 14, 
       thumbnailUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=90&w=2000", // Minimalist look for CI placeholder
