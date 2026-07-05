@@ -118,6 +118,8 @@ export interface TextStyleConfig {
   fontStyle?: string;
   fontFamily?: string;
   color?: string;
+  wordBreak?: string;
+  whiteSpace?: string;
 }
 
 export interface PortfolioData {

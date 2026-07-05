@@ -27,6 +27,43 @@ const IconMap: Record<string, any> = {
   Calendar
 };
 
+// Automatically compress and downscale file uploads to prevent exceeding localStorage 5MB limit
+const compressImage = async (file: File, maxDim = 900, quality = 0.65): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function Portfolio({ 
   data, 
   onAdminClick,
@@ -95,7 +132,19 @@ export default function Portfolio({
 
   const getTextStyle = (key: string, defaultClasses: string) => {
     const config = data.textStyles?.[key];
-    if (!config) return defaultClasses;
+    if (!config) {
+      // Default fallback classes when no config is set yet
+      let finalClasses = defaultClasses;
+      const wordBreakOverrides = ['break-normal', 'break-words', 'break-all', 'break-keep'];
+      const whiteSpaceOverrides = ['whitespace-normal', 'whitespace-nowrap', 'whitespace-pre', 'whitespace-pre-line', 'whitespace-pre-wrap'];
+      if (!wordBreakOverrides.some(o => defaultClasses.includes(o))) {
+        finalClasses += " break-keep";
+      }
+      if (!whiteSpaceOverrides.some(o => defaultClasses.includes(o))) {
+        finalClasses += " whitespace-pre-line";
+      }
+      return finalClasses;
+    }
     
     const classes = defaultClasses.split(' ');
     const sizeOverrides = ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl', 'text-7xl', 'text-8xl', 'text-9xl', 'text-[10px]', 'text-[11px]'];
@@ -104,6 +153,8 @@ export default function Portfolio({
     const weightOverrides = ['font-light', 'font-normal', 'font-medium', 'font-semibold', 'font-bold', 'font-extrabold', 'font-black'];
     const colorOverrides = ['text-white', 'text-slate-200', 'text-violet-500', 'text-violet-400', 'text-zinc-400', 'text-slate-500', 'text-slate-600', 'text-emerald-400', 'text-sky-400', 'text-amber-400', 'text-zinc-300', 'text-slate-400'];
     const styleOverrides = ['italic', 'not-italic'];
+    const wordBreakOverrides = ['break-normal', 'break-words', 'break-all', 'break-keep'];
+    const whiteSpaceOverrides = ['whitespace-normal', 'whitespace-nowrap', 'whitespace-pre', 'whitespace-pre-line', 'whitespace-pre-wrap'];
     
     let filtered = classes.filter(cls => {
       if (config.fontSize && sizeOverrides.some(o => cls === o || cls.startsWith('md:text-') || cls.startsWith('lg:text-') || cls.startsWith('sm:text-'))) return false;
@@ -112,6 +163,8 @@ export default function Portfolio({
       if (config.fontWeight && weightOverrides.includes(cls)) return false;
       if (config.color && colorOverrides.includes(cls)) return false;
       if (config.fontStyle && styleOverrides.includes(cls)) return false;
+      if (config.wordBreak && wordBreakOverrides.includes(cls)) return false;
+      if (config.whiteSpace && whiteSpaceOverrides.includes(cls)) return false;
       return true;
     });
 
@@ -122,7 +175,26 @@ export default function Portfolio({
     if (config.color) filtered.push(config.color);
     if (config.fontStyle) filtered.push(config.fontStyle);
     
+    if (config.wordBreak) {
+      filtered.push(config.wordBreak);
+    } else if (!wordBreakOverrides.some(o => defaultClasses.includes(o))) {
+      filtered.push("break-keep");
+    }
+    
+    if (config.whiteSpace) {
+      filtered.push(config.whiteSpace);
+    } else if (!whiteSpaceOverrides.some(o => defaultClasses.includes(o))) {
+      filtered.push("whitespace-pre-line");
+    }
+    
     return filtered.join(' ');
+  };
+
+  const getHighlightClass = (key: string) => {
+    if (isAdmin && activeEditorKey === key) {
+      return " ring-2 ring-violet-500 ring-offset-4 ring-offset-[#08070b]/90 rounded-xl px-2 py-1 transition-all duration-300 shadow-[0_0_20px_rgba(139,92,246,0.4)]";
+    }
+    return " transition-all duration-300";
   };
 
   const getText = (key: string, defaultText: string) => {
@@ -132,171 +204,19 @@ export default function Portfolio({
   const renderInlineEditor = (key: string) => {
     if (!isAdmin) return null;
     const isOpen = activeEditorKey === key;
-    const config = data.textStyles?.[key] || { text: getDefaultText(key) };
     
     return (
-      <div className="relative inline-block ml-2 z-[90] pointer-events-auto">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setActiveEditorKey(isOpen ? null : key);
-          }}
-          className="p-1.5 rounded-md bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 hover:text-white transition-all border border-violet-500/20 active:scale-95 flex items-center justify-center gap-1"
-          title="문구 실시간 편집 (자간, 폰트크기, 정렬 등)"
-        >
-          <Icons.Sliders size={12} />
-          <span className="text-[9px] font-bold">Edit</span>
-        </button>
-        
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute left-0 mt-2 p-6 rounded-2xl bg-[#09080d]/95 backdrop-blur-3xl border border-white/15 shadow-2xl w-80 text-left space-y-4 text-zinc-200 text-xs font-sans normal-case tracking-normal z-[100]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                <span className="font-extrabold text-violet-400 uppercase tracking-wider text-[10px]">Text & Style Arranger</span>
-                <button 
-                  onClick={() => setActiveEditorKey(null)}
-                  className="text-zinc-500 hover:text-white"
-                >
-                  <Icons.X size={12} />
-                </button>
-              </div>
-              
-              <div className="space-y-1">
-                <label className="text-[9px] text-zinc-500 font-bold uppercase block">문구 내용 (Text - 줄바꿈 지원)</label>
-                <textarea
-                  value={config.text}
-                  onChange={(e) => updateTextStyle(key, { text: e.target.value })}
-                  rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-xs focus:outline-none focus:border-violet-500 text-white font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] text-zinc-500 font-bold uppercase block">글자 크기 (Font Size)</label>
-                <select
-                  value={config.fontSize || ""}
-                  onChange={(e) => updateTextStyle(key, { fontSize: e.target.value })}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
-                >
-                  <option value="">기본 크기 (Default)</option>
-                  <option value="text-[10px]">Very Small (10px)</option>
-                  <option value="text-xs">Small (12px)</option>
-                  <option value="text-sm">Medium (14px)</option>
-                  <option value="text-base">Large (16px)</option>
-                  <option value="text-lg">X-Large (18px)</option>
-                  <option value="text-xl">2X-Large (20px)</option>
-                  <option value="text-2xl">3X-Large (24px)</option>
-                  <option value="text-3xl">4X-Large (30px)</option>
-                  <option value="text-4xl">5X-Large (36px)</option>
-                  <option value="text-5xl">6X-Large (48px)</option>
-                  <option value="text-6xl">7X-Large (60px)</option>
-                  <option value="text-7xl">8X-Large (72px)</option>
-                  <option value="text-8xl">9X-Large (96px)</option>
-                  <option value="text-xs md:text-sm">Responsive: XS-SM</option>
-                  <option value="text-sm md:text-base">Responsive: SM-BASE</option>
-                  <option value="text-base md:text-lg">Responsive: BASE-LG</option>
-                  <option value="text-lg md:text-xl">Responsive: LG-XL</option>
-                  <option value="text-xl md:text-2xl">Responsive: XL-2XL</option>
-                  <option value="text-2xl md:text-3xl">Responsive: 2XL-3XL</option>
-                  <option value="text-3xl md:text-4xl">Responsive: 3XL-4XL</option>
-                  <option value="text-3xl md:text-5xl">Responsive: 3XL-5XL</option>
-                  <option value="text-4xl md:text-6xl">Responsive: 4XL-6XL</option>
-                  <option value="text-5xl md:text-7xl">Responsive: 5XL-7XL</option>
-                  <option value="text-5xl md:text-8xl">Responsive: 5XL-8XL</option>
-                  <option value="text-6xl md:text-8xl">Responsive: 6XL-8XL</option>
-                  <option value="text-7xl md:text-9xl">Responsive: 7XL-9XL</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] text-zinc-500 font-bold uppercase block">자간 (Letter Spacing)</label>
-                <select
-                  value={config.tracking || ""}
-                  onChange={(e) => updateTextStyle(key, { tracking: e.target.value })}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
-                >
-                  <option value="">기본 자간 (Default)</option>
-                  <option value="tracking-tighter">Tighter (매우 좁음)</option>
-                  <option value="tracking-tight">Tight (좁음)</option>
-                  <option value="tracking-normal">Normal (보통)</option>
-                  <option value="tracking-wide">Wide (넓음)</option>
-                  <option value="tracking-wider">Wider (더 넓음)</option>
-                  <option value="tracking-widest">Widest (가장 넓음)</option>
-                  <option value="tracking-[0.1em]">0.1em Spacing</option>
-                  <option value="tracking-[0.15em]">0.15em Spacing</option>
-                  <option value="tracking-[0.2em]">0.2em Spacing</option>
-                  <option value="tracking-[0.3em]">0.3em Spacing</option>
-                  <option value="tracking-[0.4em]">0.4em Spacing</option>
-                  <option value="tracking-[0.5em]">0.5em Spacing</option>
-                  <option value="tracking-[0.6em]">0.6em Spacing</option>
-                  <option value="tracking-[0.8em]">0.8em Spacing</option>
-                  <option value="tracking-[1em]">1.0em Spacing</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] text-zinc-500 font-bold uppercase block">정렬 (Alignment)</label>
-                <select
-                  value={config.align || ""}
-                  onChange={(e) => updateTextStyle(key, { align: e.target.value })}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
-                >
-                  <option value="">기본 정렬 (Default)</option>
-                  <option value="text-left">Left (왼쪽 정렬)</option>
-                  <option value="text-center">Center (가운데 정렬)</option>
-                  <option value="text-right">Right (오른쪽 정렬)</option>
-                  <option value="text-justify">Justify (양끝 정렬)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] text-zinc-500 font-bold uppercase block">글자 색상 (Text Color)</label>
-                <select
-                  value={config.color || ""}
-                  onChange={(e) => updateTextStyle(key, { color: e.target.value })}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
-                >
-                  <option value="">기본 색상 (Default)</option>
-                  <option value="text-white">Pure White (순수 흰색)</option>
-                  <option value="text-slate-200">Off-White (부드러운 흰색)</option>
-                  <option value="text-zinc-300">Light Gray (밝은 회색)</option>
-                  <option value="text-zinc-400">Zinc Gray (기본 회색)</option>
-                  <option value="text-slate-500">Dim Gray (어두운 회색)</option>
-                  <option value="text-violet-500">Violet (보라색)</option>
-                  <option value="text-violet-400">Light Violet (연보라색)</option>
-                  <option value="text-emerald-400">Emerald Green (초록색)</option>
-                  <option value="text-sky-400">Sky Blue (하늘색)</option>
-                  <option value="text-amber-400">Amber Yellow (노란색)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] text-zinc-500 font-bold uppercase block">글자 굵기 (Font Weight)</label>
-                <select
-                  value={config.fontWeight || ""}
-                  onChange={(e) => updateTextStyle(key, { fontWeight: e.target.value })}
-                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
-                >
-                  <option value="">기본 굵기 (Default)</option>
-                  <option value="font-light">Light</option>
-                  <option value="font-normal">Normal</option>
-                  <option value="font-medium">Medium</option>
-                  <option value="font-semibold">Semibold</option>
-                  <option value="font-bold">Bold</option>
-                  <option value="font-extrabold">Extra Bold</option>
-                  <option value="font-black">Black</option>
-                </select>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setActiveEditorKey(isOpen ? null : key);
+        }}
+        className="absolute -top-3 -right-3 z-[60] p-1.5 rounded-lg bg-violet-600/90 hover:bg-violet-600 text-white transition-all shadow-xl border border-violet-500/30 active:scale-95 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 duration-300 pointer-events-auto"
+        title="문구 실시간 편집 (자간, 폰트크기, 정렬 등)"
+      >
+        <Icons.Sliders size={11} />
+        <span className="text-[9px] font-black uppercase tracking-wider">Edit</span>
+      </button>
     );
   };
 
@@ -327,6 +247,86 @@ export default function Portfolio({
       ...editingCommerceItem,
       [field]: value
     });
+  };
+
+  const handleGalleryImageReplace = async (imgIndex: number, file: File) => {
+    if (!selectedGalleryItem || !onUpdate) return;
+    const base64 = await compressImage(file);
+    
+    let newThumbnailUrl = selectedGalleryItem.thumbnailUrl;
+    let newImages = [...(selectedGalleryItem.images || [])];
+    
+    if (imgIndex === 0) {
+      newThumbnailUrl = base64;
+    } else {
+      const imagesIdx = imgIndex - 1;
+      newImages[imagesIdx] = base64;
+    }
+    
+    const updatedItem = {
+      ...selectedGalleryItem,
+      thumbnailUrl: newThumbnailUrl,
+      images: newImages
+    };
+    
+    onUpdate({
+      ...data,
+      items: data.items.map(item => item.id === selectedGalleryItem.id ? updatedItem : item)
+    });
+    
+    setSelectedGalleryItem(updatedItem);
+  };
+
+  const handleGalleryImageDelete = (imgIndex: number) => {
+    if (!selectedGalleryItem || !onUpdate) return;
+    
+    let newThumbnailUrl = selectedGalleryItem.thumbnailUrl;
+    let newImages = [...(selectedGalleryItem.images || [])];
+    
+    if (imgIndex === 0) {
+      if (newImages.length > 0) {
+        newThumbnailUrl = newImages[0];
+        newImages.shift();
+      } else {
+        newThumbnailUrl = "";
+      }
+    } else {
+      const imagesIdx = imgIndex - 1;
+      newImages.splice(imagesIdx, 1);
+    }
+    
+    const updatedItem = {
+      ...selectedGalleryItem,
+      thumbnailUrl: newThumbnailUrl,
+      images: newImages
+    };
+    
+    onUpdate({
+      ...data,
+      items: data.items.map(item => item.id === selectedGalleryItem.id ? updatedItem : item)
+    });
+    
+    setSelectedGalleryItem(updatedItem);
+  };
+
+  const handleGalleryImageAdd = async (file: File) => {
+    if (!selectedGalleryItem || !onUpdate) return;
+    const base64 = await compressImage(file);
+    
+    const currentImages = selectedGalleryItem.images || [];
+    const newImages = [...currentImages, base64];
+    
+    const updatedItem = {
+      ...selectedGalleryItem,
+      images: newImages
+    };
+    
+    onUpdate({
+      ...data,
+      items: data.items.map(item => item.id === selectedGalleryItem.id ? updatedItem : item)
+    });
+    
+    setSelectedGalleryItem(updatedItem);
   };
 
   const updateContactStyles = (updates: any) => {
@@ -467,6 +467,28 @@ export default function Portfolio({
               className="w-full h-full object-cover opacity-40 shadow-2xl transition-all duration-1000"
               alt="Hero Cinematic"
             />
+            {isAdmin && (
+              <div className="absolute top-28 right-8 z-[60]">
+                <label className="p-2.5 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white transition-all shadow-xl border border-violet-500/30 cursor-pointer flex items-center gap-1.5 active:scale-95 text-[10px] font-bold tracking-wider">
+                  <Icons.Camera size={14} />
+                  <span>배경 이미지 업로드/교체</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const base64 = await compressImage(file);
+                        if (onUpdate) {
+                          onUpdate({ ...data, heroImage: base64 });
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
             {/* Cinematic Liquid Overlays */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#050507] via-violet-950/20 to-transparent md:block hidden" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#050507] via-transparent to-transparent" />
@@ -481,33 +503,33 @@ export default function Portfolio({
           </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center max-w-4xl">
-          <div className="flex items-center gap-2 mb-6">
+          <div className="relative group mb-6 inline-block w-fit">
             <motion.span 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`${getTextStyle('heroTagline', 'text-violet-500 text-xs md:text-sm font-bold tracking-[0.3em]')} whitespace-pre-line`}
+              className={`${getTextStyle('heroTagline', 'text-violet-500 text-xs md:text-sm font-bold tracking-[0.3em]')} ${getHighlightClass('heroTagline')} block`}
             >
               {getText('heroTagline', 'Visual Storyteller')}
             </motion.span>
             {renderInlineEditor('heroTagline')}
           </div>
-          <div className="flex items-start gap-4 mb-8">
+          <div className="relative group mb-8 w-full">
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className={`${getTextStyle('heroHeadline', 'text-5xl md:text-8xl font-bold text-white leading-[1.1] tracking-tighter')} whitespace-pre-line flex-1`}
+              className={`${getTextStyle('heroHeadline', 'text-5xl md:text-8xl font-bold text-white leading-[1.1] tracking-tighter')} ${getHighlightClass('heroHeadline')} block`}
             >
               {getText('heroHeadline', '3초 안에 시선을 \n붙잡는 촬영')}
             </motion.h1>
             {renderInlineEditor('heroHeadline')}
           </div>
-          <div className="flex items-start gap-4 mb-12">
+          <div className="relative group mb-12 w-full">
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className={`${getTextStyle('heroParagraph', 'text-slate-400 leading-relaxed text-lg md:text-2xl max-w-2xl font-medium')} whitespace-pre-line flex-1`}
+              className={`${getTextStyle('heroParagraph', 'text-slate-400 leading-relaxed text-lg md:text-2xl max-w-2xl font-medium')} ${getHighlightClass('heroParagraph')} block`}
             >
               {getText('heroParagraph', '장면의 몰입도를 설계하는 영상 촬영자')}
             </motion.p>
@@ -515,23 +537,23 @@ export default function Portfolio({
           </div>
 
           <div className="flex flex-wrap gap-6 pt-4">
-            <div className="flex items-center gap-2">
+            <div className="relative group">
               <Button 
                 onClick={() => document.getElementById('works')?.scrollIntoView({ behavior: 'smooth' })}
-                className="liquid-glass hover:bg-white/10 text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl transition-all shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/30 overflow-hidden"
+                className={`liquid-glass hover:bg-white/10 text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl transition-all shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/30 overflow-hidden ${getHighlightClass('heroBtnWorks')}`}
               >
-                <span className={`${getTextStyle('heroBtnWorks', 'font-black tracking-[0.2em] text-sm md:text-base')} whitespace-pre-line`}>
+                <span className={`${getTextStyle('heroBtnWorks', 'font-black tracking-[0.2em] text-sm md:text-base')}`}>
                   {getText('heroBtnWorks', 'View Works')}
                 </span>
               </Button>
               {renderInlineEditor('heroBtnWorks')}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="relative group">
               <Button 
                 onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
-                className="liquid-glass bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl border border-white/10 transition-all overflow-hidden"
+                className={`liquid-glass bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl border border-white/10 transition-all overflow-hidden ${getHighlightClass('heroBtnMore')}`}
               >
-                <span className={`${getTextStyle('heroBtnMore', 'font-black tracking-[0.2em] text-sm md:text-base')} whitespace-pre-line`}>
+                <span className={`${getTextStyle('heroBtnMore', 'font-black tracking-[0.2em] text-sm md:text-base')}`}>
                   {getText('heroBtnMore', 'Discover More')}
                 </span>
               </Button>
@@ -550,68 +572,68 @@ export default function Portfolio({
             {/* Left Column: Introduction & Vision */}
             <div className="space-y-16">
               <div className="relative pb-10 border-b border-white/5">
-                <div className="flex items-start justify-between gap-4">
+                <div className="relative group w-full">
                   <motion.h2 
                     initial={{ y: 20, opacity: 0 }}
                     whileInView={{ y: 0, opacity: 1 }}
-                    className={`${getTextStyle('aboutName', 'text-5xl md:text-7xl font-black text-white tracking-tighter mb-4')} whitespace-pre-line flex-1`}
+                    className={`${getTextStyle('aboutName', 'text-5xl md:text-7xl font-black text-white tracking-tighter mb-4')} ${getHighlightClass('aboutName')} block`}
                   >
                     {getText('aboutName', data.name)}
                   </motion.h2>
                   {renderInlineEditor('aboutName')}
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-[2px] bg-violet-500" />
-                  <p className={`${getTextStyle('aboutRole', 'text-violet-500 text-sm md:text-base font-black tracking-[0.5em]')} whitespace-pre-line flex-1`}>
+                <div className="relative group w-full mt-4 flex items-center">
+                  <div className="w-8 h-[2px] bg-violet-500 mr-4 flex-shrink-0" />
+                  <p className={`${getTextStyle('aboutRole', 'text-violet-500 text-sm md:text-base font-black tracking-[0.5em]')} ${getHighlightClass('aboutRole')} flex-1`}>
                     {getText('aboutRole', data.role)}
                   </p>
                   {renderInlineEditor('aboutRole')}
                 </div>
               </div>
-
+ 
               <div className="space-y-8">
-                <div className="flex items-center gap-4">
-                  <h4 className={`${getTextStyle('aboutVisionHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} whitespace-pre-line`}>
+                <div className="relative group flex items-center gap-4">
+                  <h4 className={`${getTextStyle('aboutVisionHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} ${getHighlightClass('aboutVisionHeader')}`}>
                     {getText('aboutVisionHeader', 'Vision')}
                   </h4>
                   {renderInlineEditor('aboutVisionHeader')}
                   <div className="h-[1px] flex-1 bg-white/5" />
                 </div>
                 
-                <div className="flex items-start justify-between gap-4">
-                  <p className={`${getTextStyle('aboutHeadline', 'text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter')} whitespace-pre-line flex-1`}>
+                <div className="relative group w-full">
+                  <p className={`${getTextStyle('aboutHeadline', 'text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter')} ${getHighlightClass('aboutHeadline')} block`}>
                     {getText('aboutHeadline', data.aboutHeadline)}
                   </p>
                   {renderInlineEditor('aboutHeadline')}
                 </div>
                 
-                <div className="flex items-start justify-between gap-4">
-                  <p className={`${getTextStyle('aboutDescription', 'text-zinc-400 text-lg md:text-xl leading-relaxed font-bold border-l-2 border-violet-500/30 pl-6')} whitespace-pre-line flex-1`}>
+                <div className="relative group w-full">
+                  <p className={`${getTextStyle('aboutDescription', 'text-zinc-400 text-lg md:text-xl leading-relaxed font-bold border-l-2 border-violet-500/30 pl-6')} ${getHighlightClass('aboutDescription')} block`}>
                     {getText('aboutDescription', data.about)}
                   </p>
                   {renderInlineEditor('aboutDescription')}
                 </div>
               </div>
-
+ 
               {/* Goal Section as a highlighted card */}
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                className="p-10 rounded-[2rem] bg-white/5 border border-white/10 relative group overflow-hidden"
+                className="p-10 rounded-[2rem] bg-white/5 border border-white/10 relative group"
               >
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Activity className="w-16 h-16 text-violet-500" />
                 </div>
                 
-                <div className="flex items-center gap-4 mb-6">
-                  <h4 className={`${getTextStyle('aboutGoalHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} whitespace-pre-line`}>
+                <div className="relative group flex items-center gap-4 mb-6">
+                  <h4 className={`${getTextStyle('aboutGoalHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} ${getHighlightClass('aboutGoalHeader')}`}>
                     {getText('aboutGoalHeader', 'Core Goal')}
                   </h4>
                   {renderInlineEditor('aboutGoalHeader')}
                 </div>
                 
-                <div className="flex items-start justify-between gap-4 relative z-10">
-                  <p className={`${getTextStyle('aboutGoal', 'text-zinc-300 text-xl font-bold italic leading-relaxed')} whitespace-pre-line flex-1`}>
+                <div className="relative group w-full z-10">
+                  <p className={`${getTextStyle('aboutGoal', 'text-zinc-300 text-xl font-bold italic leading-relaxed')} ${getHighlightClass('aboutGoal')} block`}>
                     "{getText('aboutGoal', data.goal)}"
                   </p>
                   {renderInlineEditor('aboutGoal')}
@@ -622,8 +644,8 @@ export default function Portfolio({
             {/* Right Column: Experience Resume */}
             <div className="space-y-16">
               <div className="space-y-12">
-                <div className="flex items-center gap-4">
-                  <h5 className={`${getTextStyle('experienceHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} whitespace-pre-line`}>
+                <div className="relative group flex items-center gap-4">
+                  <h5 className={`${getTextStyle('experienceHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} ${getHighlightClass('experienceHeader')}`}>
                     {getText('experienceHeader', data.sectionTitles?.experience || 'Experience Journey')}
                   </h5>
                   {renderInlineEditor('experienceHeader')}
@@ -675,15 +697,15 @@ export default function Portfolio({
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-24 gap-8">
             <div>
-              <div className="flex items-center gap-4 mb-4">
+              <div className="relative group flex items-center gap-4 mb-4">
                  <div className="w-12 h-[1px] bg-violet-500" />
-                 <h2 className={`${getTextStyle('worksTagline', 'text-violet-500 text-xs font-bold tracking-[0.3em]')} whitespace-pre-line`}>
+                 <h2 className={`${getTextStyle('worksTagline', 'text-violet-500 text-xs font-bold tracking-[0.3em]')} ${getHighlightClass('worksTagline')}`}>
                    {getText('worksTagline', 'Showcase')}
                  </h2>
                  {renderInlineEditor('worksTagline')}
               </div>
-              <div className="flex items-start gap-4 mb-12">
-                <h3 className={`${getTextStyle('worksHeader', 'text-4xl md:text-6xl font-bold text-white tracking-tighter')} whitespace-pre-line flex-1`}>
+              <div className="relative group w-full mb-12">
+                <h3 className={`${getTextStyle('worksHeader', 'text-4xl md:text-6xl font-bold text-white tracking-tighter')} ${getHighlightClass('worksHeader')} block`}>
                   {getText('worksHeader', data.sectionTitles?.works || 'Activity History')}
                 </h3>
                 {renderInlineEditor('worksHeader')}
@@ -743,6 +765,42 @@ export default function Portfolio({
                       className="group relative flex flex-col"
                     >
                       <div className="aspect-video relative overflow-hidden bg-slate-900 border border-white/5 rounded-lg mb-8 group-hover:border-violet-500/50 transition-all duration-700 shadow-2xl flex items-center justify-center">
+                        {isAdmin && (
+                          <div className="absolute top-4 left-4 z-[40] pointer-events-auto">
+                            <label className="p-2 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white transition-all shadow-xl border border-violet-500/30 cursor-pointer flex items-center gap-1.5 active:scale-95 text-[10px] font-bold tracking-wider">
+                              <Icons.Camera size={12} />
+                              <span>썸네일 업로드</span>
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const base64 = await compressImage(file);
+                                    if (onUpdate) {
+                                      if (item.isGroup && item.group) {
+                                        onUpdate({
+                                          ...data,
+                                          groupCovers: {
+                                            ...(data.groupCovers || {}),
+                                            [item.group]: base64
+                                          },
+                                          items: data.items.map(i => i.id === item.id ? { ...i, thumbnailUrl: base64 } : i)
+                                        });
+                                      } else {
+                                        onUpdate({
+                                          ...data,
+                                          items: data.items.map(i => i.id === item.id ? { ...i, thumbnailUrl: base64 } : i)
+                                        });
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
                         {item.isGroup ? (
                           <div 
                             className="w-full h-full relative group cursor-pointer"
@@ -1403,12 +1461,55 @@ export default function Portfolio({
                       alt={`Gallery item ${idx}`} 
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    
+                    {isAdmin && (
+                      <div className="absolute bottom-4 right-4 z-20 flex gap-2">
+                        <label className="p-1.5 rounded-lg bg-violet-600/90 hover:bg-violet-600 text-white cursor-pointer transition-all active:scale-95 text-[9px] font-black tracking-wider flex items-center gap-1">
+                          <Icons.RefreshCw size={10} />
+                          <span>교체</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleGalleryImageReplace(idx, file);
+                            }}
+                          />
+                        </label>
+                        <button 
+                          onClick={() => handleGalleryImageDelete(idx)}
+                          className="p-1.5 rounded-lg bg-red-600/90 hover:bg-red-600 text-white transition-all active:scale-95 text-[9px] font-black tracking-wider flex items-center gap-1"
+                        >
+                          <Icons.Trash size={10} />
+                          <span>삭제</span>
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 ));
               })()}
             </div>
             
-            <div className="mt-20 text-center">
+            {isAdmin && (
+              <div className="mt-12 flex justify-center">
+                <label className="p-4 px-8 rounded-2xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 hover:text-white border-2 border-dashed border-violet-500/30 hover:border-violet-500/60 cursor-pointer transition-all active:scale-95 flex items-center gap-2.5 font-bold text-xs tracking-wider uppercase">
+                  <Icons.Plus size={14} />
+                  <span>새 이미지 추가하기</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleGalleryImageAdd(file);
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            
+            <div className="mt-16 text-center">
               <Button 
                 onClick={() => setSelectedGalleryItem(null)}
                 className="liquid-glass px-12 py-6 rounded-2xl text-white font-bold tracking-widest text-xs border-white/20 hover:bg-white/10"
@@ -1468,6 +1569,26 @@ export default function Portfolio({
                       alt="Banner background" 
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#07060a] via-[#07060a]/90 to-[#07060a]/70" />
+                    {isAdmin && (
+                      <div className="absolute top-28 right-8 z-[30] pointer-events-auto">
+                        <label className="p-2.5 rounded-xl bg-violet-600/80 hover:bg-violet-600 text-white transition-all shadow-xl border border-violet-500/30 cursor-pointer flex items-center gap-1.5 active:scale-95 text-[10px] font-bold tracking-wider">
+                          <Icons.Camera size={14} />
+                          <span>배경 이미지 업로드/교체</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const base64 = await compressImage(file);
+                                handleFieldChange('thumbnailUrl', base64);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
                   </div>
 
                   <div className="relative z-10 max-w-5xl mx-auto w-full">
@@ -1804,6 +1925,196 @@ export default function Portfolio({
             );
           })()
         )}
+      </AnimatePresence>
+
+      {/* Global Text & Style Inspector Panel */}
+      <AnimatePresence>
+        {activeEditorKey && (() => {
+          const config = data.textStyles?.[activeEditorKey] || { text: getDefaultText(activeEditorKey) };
+          return (
+            <motion.div
+              initial={{ opacity: 0, x: 100, y: 0, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 100, y: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 180 }}
+              className="fixed top-24 right-6 p-6 rounded-3xl bg-[#09080d]/95 backdrop-blur-3xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-80 text-left space-y-4 text-zinc-200 text-xs font-sans normal-case tracking-normal z-[200] max-h-[80vh] overflow-y-auto pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                  <span className="font-extrabold text-violet-400 uppercase tracking-widest text-[10px]">Text & Style Arranger</span>
+                </div>
+                <button 
+                  onClick={() => setActiveEditorKey(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-all active:scale-95"
+                >
+                  <Icons.X size={14} />
+                </button>
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">문구 내용 (Text - 줄바꿈 지원)</label>
+                <textarea
+                  value={config.text}
+                  onChange={(e) => updateTextStyle(activeEditorKey, { text: e.target.value })}
+                  rows={4}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 text-white font-medium"
+                  placeholder="텍스트를 입력하세요..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">글자 크기 (Font Size)</label>
+                  <select
+                    value={config.fontSize || ""}
+                    onChange={(e) => updateTextStyle(activeEditorKey, { fontSize: e.target.value })}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="">기본 크기 (Default)</option>
+                    <option value="text-[10px]">Very Small (10px)</option>
+                    <option value="text-xs">Small (12px)</option>
+                    <option value="text-sm">Medium (14px)</option>
+                    <option value="text-base">Large (16px)</option>
+                    <option value="text-lg">X-Large (18px)</option>
+                    <option value="text-xl">2X-Large (20px)</option>
+                    <option value="text-2xl">3X-Large (24px)</option>
+                    <option value="text-3xl">4X-Large (30px)</option>
+                    <option value="text-4xl">5X-Large (36px)</option>
+                    <option value="text-5xl">6X-Large (48px)</option>
+                    <option value="text-6xl">7X-Large (60px)</option>
+                    <option value="text-7xl">8X-Large (72px)</option>
+                    <option value="text-8xl">9X-Large (96px)</option>
+                    <option value="text-xs md:text-sm">Responsive: XS-SM</option>
+                    <option value="text-sm md:text-base">Responsive: SM-BASE</option>
+                    <option value="text-base md:text-lg">Responsive: BASE-LG</option>
+                    <option value="text-lg md:text-xl">Responsive: LG-XL</option>
+                    <option value="text-xl md:text-2xl">Responsive: XL-2XL</option>
+                    <option value="text-2xl md:text-3xl">Responsive: 2XL-3XL</option>
+                    <option value="text-3xl md:text-4xl">Responsive: 3XL-4XL</option>
+                    <option value="text-3xl md:text-5xl">Responsive: 3XL-5XL</option>
+                    <option value="text-4xl md:text-6xl">Responsive: 4XL-6XL</option>
+                    <option value="text-5xl md:text-7xl">Responsive: 5XL-7XL</option>
+                    <option value="text-5xl md:text-8xl">Responsive: 5XL-8XL</option>
+                    <option value="text-6xl md:text-8xl">Responsive: 6XL-8XL</option>
+                    <option value="text-7xl md:text-9xl">Responsive: 7XL-9XL</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">자간 (Letter Spacing)</label>
+                  <select
+                    value={config.tracking || ""}
+                    onChange={(e) => updateTextStyle(activeEditorKey, { tracking: e.target.value })}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="">기본 자간 (Default)</option>
+                    <option value="tracking-tighter">Tighter (매우 좁음)</option>
+                    <option value="tracking-tight">Tight (좁음)</option>
+                    <option value="tracking-normal">Normal (보통)</option>
+                    <option value="tracking-wide">Wide (넓음)</option>
+                    <option value="tracking-wider">Wider (더 넓음)</option>
+                    <option value="tracking-widest">Widest (가장 넓음)</option>
+                    <option value="tracking-[0.1em]">0.1em Spacing</option>
+                    <option value="tracking-[0.15em]">0.15em Spacing</option>
+                    <option value="tracking-[0.2em]">0.2em Spacing</option>
+                    <option value="tracking-[0.3em]">0.3em Spacing</option>
+                    <option value="tracking-[0.4em]">0.4em Spacing</option>
+                    <option value="tracking-[0.5em]">0.5em Spacing</option>
+                    <option value="tracking-[0.6em]">0.6em Spacing</option>
+                    <option value="tracking-[0.8em]">0.8em Spacing</option>
+                    <option value="tracking-[1em]">1.0em Spacing</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">정렬 (Alignment)</label>
+                  <select
+                    value={config.align || ""}
+                    onChange={(e) => updateTextStyle(activeEditorKey, { align: e.target.value })}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="">기본 정렬 (Default)</option>
+                    <option value="text-left">Left (왼쪽 정렬)</option>
+                    <option value="text-center">Center (가운데 정렬)</option>
+                    <option value="text-right">Right (오른쪽 정렬)</option>
+                    <option value="text-justify">Justify (양끝 정렬)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">글자 색상 (Text Color)</label>
+                  <select
+                    value={config.color || ""}
+                    onChange={(e) => updateTextStyle(activeEditorKey, { color: e.target.value })}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="">기본 색상 (Default)</option>
+                    <option value="text-white">Pure White (순수 흰색)</option>
+                    <option value="text-slate-200">Off-White (부드러운 흰색)</option>
+                    <option value="text-zinc-300">Light Gray (밝은 회색)</option>
+                    <option value="text-zinc-400">Zinc Gray (기본 회색)</option>
+                    <option value="text-slate-500">Dim Gray (어두운 회색)</option>
+                    <option value="text-violet-500">Violet (보라색)</option>
+                    <option value="text-violet-400">Light Violet (연보라색)</option>
+                    <option value="text-emerald-400">Emerald (초록색)</option>
+                    <option value="text-sky-400">Sky Blue (하늘색)</option>
+                    <option value="text-amber-400">Amber (노란색)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">글자 굵기 (Font Weight)</label>
+                  <select
+                    value={config.fontWeight || ""}
+                    onChange={(e) => updateTextStyle(activeEditorKey, { fontWeight: e.target.value })}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-violet-500/50"
+                  >
+                    <option value="">기본 굵기 (Default)</option>
+                    <option value="font-light">Light</option>
+                    <option value="font-normal">Normal</option>
+                    <option value="font-medium">Medium</option>
+                    <option value="font-semibold">Semibold</option>
+                    <option value="font-bold">Bold</option>
+                    <option value="font-extrabold">Extra Bold</option>
+                    <option value="font-black">Black</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">단어 끊기 (Word Break)</label>
+                  <select
+                    value={config.wordBreak || ""}
+                    onChange={(e) => updateTextStyle(activeEditorKey, { wordBreak: e.target.value })}
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
+                  >
+                    <option value="">기본 방식 (Default)</option>
+                    <option value="break-keep">Keep All (단어 보존 - 권장)</option>
+                    <option value="break-all">Break All (글자 줄바꿈)</option>
+                    <option value="break-words">Break Words (단어 우선)</option>
+                    <option value="break-normal">Normal (기본)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">공백/개행 표시 (Line Wrap & White Space)</label>
+                <select
+                  value={config.whiteSpace || ""}
+                  onChange={(e) => updateTextStyle(activeEditorKey, { whiteSpace: e.target.value })}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-violet-500/50"
+                >
+                  <option value="">기본 방식 (Default)</option>
+                  <option value="whitespace-pre-line">Pre-Line (줄바꿈+자동줄바꿈)</option>
+                  <option value="whitespace-pre-wrap">Pre-Wrap (엔터+모든공백 유지)</option>
+                  <option value="whitespace-nowrap">No Wrap (줄바꿈 방지)</option>
+                  <option value="whitespace-normal">Normal (자동 줄바꿈)</option>
+                </select>
+              </div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
