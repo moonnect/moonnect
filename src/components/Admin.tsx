@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PortfolioData, PortfolioItem, ExperienceItem, BtsImage } from '@/types';
+import { PortfolioData, PortfolioItem, ExperienceItem } from '@/types';
 import { Trash2, Plus, LogOut, Save, Crop as CropIcon, X, Eye, Copy, Check } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getYoutubeId, getProcessedImageUrl } from '@/lib/utils';
@@ -127,11 +127,10 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [croppingTarget, setCroppingTarget] = useState<{ 
-    type: 'hero' | 'thumbnail' | 'gallery' | 'bts' | 'group' | 'gear'; 
+    type: 'hero' | 'thumbnail' | 'gallery' | 'group'; 
     itemId?: string;
     imageIndex?: number;
     groupId?: string;
-    gearId?: string;
   } | null>(null);
   // Optional aspect ratio - default to 16/9 for video/portfolio, can be adjusted
   const [aspect, setAspect] = useState(16 / 9);
@@ -172,18 +171,6 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
               items: prev.items.map(i => i.id === croppingTarget.itemId ? { ...i, images: newImages } : i)
             };
           });
-        } else if (croppingTarget.type === 'bts') {
-          setLocalData(prev => {
-            if (croppingTarget.imageIndex !== undefined) {
-              const newBts = [...prev.btsImages];
-              newBts[croppingTarget.imageIndex] = { ...newBts[croppingTarget.imageIndex], url: croppedImage };
-              return { ...prev, btsImages: newBts };
-            }
-            return {
-              ...prev,
-              btsImages: [...prev.btsImages, { id: Math.random().toString(36).substr(2, 9), url: croppedImage }]
-            };
-          });
         } else if (croppingTarget.type === 'group' && croppingTarget.groupId) {
           setLocalData(prev => {
             const updatedCovers = { ...(prev.groupCovers || {}) };
@@ -193,11 +180,6 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
               groupCovers: updatedCovers
             };
           });
-        } else if (croppingTarget.type === 'gear' && croppingTarget.gearId) {
-          setLocalData(prev => ({
-            ...prev,
-            gear: prev.gear.map(g => g.id === croppingTarget.gearId ? { ...g, imageUrl: croppedImage } : g)
-          }));
         }
 
         setImageToCrop(null);
@@ -268,8 +250,6 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
             <TabsTrigger value="portfolio">포트폴리오</TabsTrigger>
             <TabsTrigger value="about">정보 관리</TabsTrigger>
             <TabsTrigger value="experience">경력</TabsTrigger>
-            <TabsTrigger value="gear">장비</TabsTrigger>
-            <TabsTrigger value="bts">현장 사진</TabsTrigger>
             <TabsTrigger value="export" className="text-violet-400 font-bold">GitHub 배포 지원</TabsTrigger>
           </TabsList>
 
@@ -818,7 +798,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                     <div className="space-y-2 col-span-2">
                        <Label className="text-[10px] text-zinc-500">Contact 메인 문구 (Footer Headline)</Label>
                        <Input 
-                         value={localData.sectionTitles?.contactHeadline || "다음 프레임의 과정을 함께하고 싶습니다."} 
+                         value={localData.sectionTitles?.contactHeadline || "Let's Build Something Great"} 
                          onChange={e => setLocalData({
                            ...localData,
                            sectionTitles: { ...(localData.sectionTitles || {}), contactHeadline: e.target.value }
@@ -829,36 +809,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-zinc-800">
-                  <Label className="mb-4 block">통계 수치 (Stats)</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {localData.stats.map((stat, idx) => (
-                      <div key={stat.id} className="space-y-2 p-4 bg-zinc-950 rounded-lg border border-zinc-800">
-                        <Label className="text-[10px] text-zinc-500">통계 {idx + 1}</Label>
-                        <Input 
-                          placeholder="수치 (예: 10+)" 
-                          value={stat.value} 
-                          onChange={e => {
-                            const newStats = [...localData.stats];
-                            newStats[idx] = { ...stat, value: e.target.value };
-                            setLocalData({ ...localData, stats: newStats });
-                          }}
-                          className="bg-zinc-900 border-zinc-800 h-8 text-sm" 
-                        />
-                        <Input 
-                          placeholder="라벨 (예: PROJECTS)" 
-                          value={stat.label} 
-                          onChange={e => {
-                            const newStats = [...localData.stats];
-                            newStats[idx] = { ...stat, label: e.target.value };
-                            setLocalData({ ...localData, stats: newStats });
-                          }}
-                          className="bg-zinc-900 border-zinc-800 h-8 text-sm" 
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
 
                 {/* Direct Contact Styling Control Section */}
                 <div className="pt-8 border-t border-zinc-800 space-y-6">
@@ -1023,7 +974,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                       <div className="space-y-2 col-span-1 md:col-span-2">
                         <Label className="text-[10px] text-zinc-500">헤드라인 텍스트 (Headline Text) - 줄바꿈은 \n 으로 구분</Label>
                         <Input 
-                          value={localData.contactStyles?.headlineText ?? localData.sectionTitles?.contactHeadline ?? "다음 프레임의 과정을\n함께하고 싶습니다."}
+                          value={localData.contactStyles?.headlineText ?? localData.sectionTitles?.contactHeadline ?? "Let's Build \nSomething Great"}
                           onChange={e => {
                             const styles = localData.contactStyles || {};
                             setLocalData({
@@ -1517,112 +1468,6 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                <Button variant="outline" onClick={() => setLocalData({...localData, experiences: [...localData.experiences, {id: Math.random().toString(), title: '', description: '', period: ''}]})} className="w-full border-dashed border-zinc-800 bg-transparent hover:bg-zinc-900">
                   <Plus className="w-4 h-4 mr-2" /> 경력 추가
                </Button>
-             </div>
-          </TabsContent>
-
-          <TabsContent value="gear">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               {localData.gear.map(g => (
-                 <Card key={g.id} className="bg-zinc-900 border-zinc-800 text-zinc-100">
-                   <CardContent className="pt-6 flex gap-4">
-                     <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-950 border border-zinc-800 relative group">
-                        <img src={getProcessedImageUrl(g.imageUrl)} className="w-full h-full object-cover" />
-                        <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                          <Plus className="w-4 h-4 text-white" />
-                          <input 
-                            type="file" 
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setImageToCrop(reader.result as string);
-                                setAspect(1);
-                                setCroppingTarget({ type: 'gear', gearId: g.id });
-                              };
-                              reader.readAsDataURL(file);
-                            }}
-                          />
-                        </label>
-                     </div>
-                     <div className="flex-1 space-y-2">
-                        <Label className="text-[10px] text-zinc-500 uppercase tracking-widest">장비 정보</Label>
-                        <Input value={g.name} onChange={e => setLocalData({...localData, gear: localData.gear.map(x => x.id === g.id ? {...x, name: e.target.value} : x)})} className="bg-zinc-950 border-zinc-800" placeholder="장비 이름 (예: SONY a7c2)" />
-                        <Input value={g.imageUrl} onChange={e => setLocalData({...localData, gear: localData.gear.map(x => x.id === g.id ? {...x, imageUrl: e.target.value} : x)})} className="bg-zinc-950 border-zinc-800 text-[10px] h-7" placeholder="이미지 URL 주소" />
-                     </div>
-                     <Button variant="ghost" size="icon" onClick={() => setLocalData({...localData, gear: localData.gear.filter(x => x.id !== g.id)})} className="text-zinc-500 hover:text-red-500">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                   </CardContent>
-                 </Card>
-               ))}
-               <Button variant="outline" onClick={() => setLocalData({...localData, gear: [...localData.gear, {id: Math.random().toString(), name: '', imageUrl: ''}]})} className="w-full border-dashed border-zinc-800 bg-transparent hover:bg-zinc-900 h-24">
-                  <Plus className="w-4 h-4 mr-2" /> 장비 추가
-               </Button>
-             </div>
-          </TabsContent>
-
-          <TabsContent value="bts">
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {localData.btsImages.map((img, idx) => (
-                  <Card key={img.id} className="bg-zinc-900 border-zinc-800 text-zinc-100 overflow-hidden group relative">
-                    <img src={getProcessedImageUrl(img.url)} className="w-full h-40 object-cover" />
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-2">
-                       <Button 
-                         variant="secondary" 
-                         size="sm" 
-                         onClick={() => {
-                           setImageToCrop(img.url);
-                           setAspect(4 / 3);
-                           setCroppingTarget({ type: 'bts', imageIndex: idx });
-                         }}
-                         className="w-24 bg-white/10 hover:bg-white/20 text-white border-white/10"
-                       >
-                         수정
-                       </Button>
-                       <Button 
-                         variant="destructive" 
-                         size="sm" 
-                         onClick={() => setLocalData({...localData, btsImages: localData.btsImages.filter(i => i.id !== img.id)})}
-                         className="w-24"
-                       >
-                         삭제
-                       </Button>
-                    </div>
-                    <CardContent className="pt-4 space-y-2">
-                       <Input value={img.url} onChange={e => setLocalData({...localData, btsImages: localData.btsImages.map(i => i.id === img.id ? {...i, url: e.target.value} : i)})} className="bg-zinc-950 border-zinc-800 text-[10px]" placeholder="Image URL" />
-                       <Input value={img.caption || ''} onChange={e => setLocalData({...localData, btsImages: localData.btsImages.map(i => i.id === img.id ? {...i, caption: e.target.value} : i)})} className="bg-zinc-950 border-zinc-800 text-[10px]" placeholder="캡션 (설명)" />
-                    </CardContent>
-                  </Card>
-                ))}
-                <label className="h-40 rounded-lg border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-900/50 transition-colors">
-                  <Plus className="w-6 h-6 text-zinc-500 mb-2" />
-                  <span className="text-sm text-zinc-500 font-medium tracking-tight">현장 사진 추가</span>
-                  <input 
-                    type="file" 
-                    multiple 
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const files = e.target.files;
-                      if (!files || files.length === 0) return;
-                      
-                      const newBtsImages = [...localData.btsImages];
-                      for (let i = 0; i < files.length; i++) {
-                        const file = files[i];
-                        const compressed = await compressImage(file, 900, 0.65);
-                        newBtsImages.push({
-                          id: `bts-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
-                          url: compressed,
-                          caption: ''
-                        });
-                      }
-                      setLocalData({ ...localData, btsImages: newBtsImages });
-                    }}
-                  />
-                </label>
              </div>
           </TabsContent>
 

@@ -53,6 +53,252 @@ export default function Portfolio({
   const [viewingCommerce, setViewingCommerce] = useState<PortfolioItem | null>(null);
   const [editingCommerceItem, setEditingCommerceItem] = useState<PortfolioItem | null>(null);
   const [showContactEditor, setShowContactEditor] = useState(false);
+  const [activeEditorKey, setActiveEditorKey] = useState<string | null>(null);
+
+  const getDefaultText = (key: string) => {
+    switch(key) {
+      case 'heroTagline': return "Visual Storyteller";
+      case 'heroHeadline': return "3초 안에 시선을 \n붙잡는 촬영";
+      case 'heroParagraph': return "장면의 몰입도를 설계하는 영상 촬영자";
+      case 'heroBtnWorks': return "View Works";
+      case 'heroBtnMore': return "Discover More";
+      case 'aboutName': return data.name || "전승문";
+      case 'aboutRole': return data.role || "JEON SEUNG MOON";
+      case 'aboutVisionHeader': return "Vision";
+      case 'aboutHeadline': return data.aboutHeadline || "3초 안에 시선을 붙잡는 촬영";
+      case 'aboutDescription': return data.about || "다양한 브랜드 및 콘텐츠 촬영 경험을 바탕으로...";
+      case 'aboutGoalHeader': return "Core Goal";
+      case 'aboutGoal': return data.goal || "다양한 환경에서도 안정적인 촬영과...";
+      case 'experienceHeader': return data.sectionTitles?.experience || "Experience Journey";
+      case 'worksTagline': return "Showcase";
+      case 'worksHeader': return data.sectionTitles?.works || "Activity History";
+      default: return "";
+    }
+  };
+
+  const updateTextStyle = (key: string, updates: any) => {
+    if (!onUpdate) return;
+    const currentStyles = data.textStyles || {};
+    const defaultText = getDefaultText(key);
+    const existing = currentStyles[key] || { text: defaultText };
+    onUpdate({
+      ...data,
+      textStyles: {
+        ...currentStyles,
+        [key]: {
+          ...existing,
+          ...updates
+        }
+      }
+    });
+  };
+
+  const getTextStyle = (key: string, defaultClasses: string) => {
+    const config = data.textStyles?.[key];
+    if (!config) return defaultClasses;
+    
+    const classes = defaultClasses.split(' ');
+    const sizeOverrides = ['text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl', 'text-7xl', 'text-8xl', 'text-9xl', 'text-[10px]', 'text-[11px]'];
+    const trackingOverrides = ['tracking-tighter', 'tracking-tight', 'tracking-normal', 'tracking-wide', 'tracking-wider', 'tracking-widest', 'tracking-[0.1em]', 'tracking-[0.15em]', 'tracking-[0.2em]', 'tracking-[0.3em]', 'tracking-[0.4em]', 'tracking-[0.5em]', 'tracking-[0.6em]', 'tracking-[0.8em]', 'tracking-[1em]'];
+    const alignOverrides = ['text-left', 'text-center', 'text-right', 'text-justify'];
+    const weightOverrides = ['font-light', 'font-normal', 'font-medium', 'font-semibold', 'font-bold', 'font-extrabold', 'font-black'];
+    const colorOverrides = ['text-white', 'text-slate-200', 'text-violet-500', 'text-violet-400', 'text-zinc-400', 'text-slate-500', 'text-slate-600', 'text-emerald-400', 'text-sky-400', 'text-amber-400', 'text-zinc-300', 'text-slate-400'];
+    const styleOverrides = ['italic', 'not-italic'];
+    
+    let filtered = classes.filter(cls => {
+      if (config.fontSize && sizeOverrides.some(o => cls === o || cls.startsWith('md:text-') || cls.startsWith('lg:text-') || cls.startsWith('sm:text-'))) return false;
+      if (config.tracking && trackingOverrides.includes(cls)) return false;
+      if (config.align && alignOverrides.includes(cls)) return false;
+      if (config.fontWeight && weightOverrides.includes(cls)) return false;
+      if (config.color && colorOverrides.includes(cls)) return false;
+      if (config.fontStyle && styleOverrides.includes(cls)) return false;
+      return true;
+    });
+
+    if (config.fontSize) filtered.push(config.fontSize);
+    if (config.tracking) filtered.push(config.tracking);
+    if (config.align) filtered.push(config.align);
+    if (config.fontWeight) filtered.push(config.fontWeight);
+    if (config.color) filtered.push(config.color);
+    if (config.fontStyle) filtered.push(config.fontStyle);
+    
+    return filtered.join(' ');
+  };
+
+  const getText = (key: string, defaultText: string) => {
+    return data.textStyles?.[key]?.text ?? defaultText;
+  };
+
+  const renderInlineEditor = (key: string) => {
+    if (!isAdmin) return null;
+    const isOpen = activeEditorKey === key;
+    const config = data.textStyles?.[key] || { text: getDefaultText(key) };
+    
+    return (
+      <div className="relative inline-block ml-2 z-[90] pointer-events-auto">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveEditorKey(isOpen ? null : key);
+          }}
+          className="p-1.5 rounded-md bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 hover:text-white transition-all border border-violet-500/20 active:scale-95 flex items-center justify-center gap-1"
+          title="문구 실시간 편집 (자간, 폰트크기, 정렬 등)"
+        >
+          <Icons.Sliders size={12} />
+          <span className="text-[9px] font-bold">Edit</span>
+        </button>
+        
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute left-0 mt-2 p-6 rounded-2xl bg-[#09080d]/95 backdrop-blur-3xl border border-white/15 shadow-2xl w-80 text-left space-y-4 text-zinc-200 text-xs font-sans normal-case tracking-normal z-[100]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="font-extrabold text-violet-400 uppercase tracking-wider text-[10px]">Text & Style Arranger</span>
+                <button 
+                  onClick={() => setActiveEditorKey(null)}
+                  className="text-zinc-500 hover:text-white"
+                >
+                  <Icons.X size={12} />
+                </button>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase block">문구 내용 (Text - 줄바꿈 지원)</label>
+                <textarea
+                  value={config.text}
+                  onChange={(e) => updateTextStyle(key, { text: e.target.value })}
+                  rows={3}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-xs focus:outline-none focus:border-violet-500 text-white font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase block">글자 크기 (Font Size)</label>
+                <select
+                  value={config.fontSize || ""}
+                  onChange={(e) => updateTextStyle(key, { fontSize: e.target.value })}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="">기본 크기 (Default)</option>
+                  <option value="text-[10px]">Very Small (10px)</option>
+                  <option value="text-xs">Small (12px)</option>
+                  <option value="text-sm">Medium (14px)</option>
+                  <option value="text-base">Large (16px)</option>
+                  <option value="text-lg">X-Large (18px)</option>
+                  <option value="text-xl">2X-Large (20px)</option>
+                  <option value="text-2xl">3X-Large (24px)</option>
+                  <option value="text-3xl">4X-Large (30px)</option>
+                  <option value="text-4xl">5X-Large (36px)</option>
+                  <option value="text-5xl">6X-Large (48px)</option>
+                  <option value="text-6xl">7X-Large (60px)</option>
+                  <option value="text-7xl">8X-Large (72px)</option>
+                  <option value="text-8xl">9X-Large (96px)</option>
+                  <option value="text-xs md:text-sm">Responsive: XS-SM</option>
+                  <option value="text-sm md:text-base">Responsive: SM-BASE</option>
+                  <option value="text-base md:text-lg">Responsive: BASE-LG</option>
+                  <option value="text-lg md:text-xl">Responsive: LG-XL</option>
+                  <option value="text-xl md:text-2xl">Responsive: XL-2XL</option>
+                  <option value="text-2xl md:text-3xl">Responsive: 2XL-3XL</option>
+                  <option value="text-3xl md:text-4xl">Responsive: 3XL-4XL</option>
+                  <option value="text-3xl md:text-5xl">Responsive: 3XL-5XL</option>
+                  <option value="text-4xl md:text-6xl">Responsive: 4XL-6XL</option>
+                  <option value="text-5xl md:text-7xl">Responsive: 5XL-7XL</option>
+                  <option value="text-5xl md:text-8xl">Responsive: 5XL-8XL</option>
+                  <option value="text-6xl md:text-8xl">Responsive: 6XL-8XL</option>
+                  <option value="text-7xl md:text-9xl">Responsive: 7XL-9XL</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase block">자간 (Letter Spacing)</label>
+                <select
+                  value={config.tracking || ""}
+                  onChange={(e) => updateTextStyle(key, { tracking: e.target.value })}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="">기본 자간 (Default)</option>
+                  <option value="tracking-tighter">Tighter (매우 좁음)</option>
+                  <option value="tracking-tight">Tight (좁음)</option>
+                  <option value="tracking-normal">Normal (보통)</option>
+                  <option value="tracking-wide">Wide (넓음)</option>
+                  <option value="tracking-wider">Wider (더 넓음)</option>
+                  <option value="tracking-widest">Widest (가장 넓음)</option>
+                  <option value="tracking-[0.1em]">0.1em Spacing</option>
+                  <option value="tracking-[0.15em]">0.15em Spacing</option>
+                  <option value="tracking-[0.2em]">0.2em Spacing</option>
+                  <option value="tracking-[0.3em]">0.3em Spacing</option>
+                  <option value="tracking-[0.4em]">0.4em Spacing</option>
+                  <option value="tracking-[0.5em]">0.5em Spacing</option>
+                  <option value="tracking-[0.6em]">0.6em Spacing</option>
+                  <option value="tracking-[0.8em]">0.8em Spacing</option>
+                  <option value="tracking-[1em]">1.0em Spacing</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase block">정렬 (Alignment)</label>
+                <select
+                  value={config.align || ""}
+                  onChange={(e) => updateTextStyle(key, { align: e.target.value })}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="">기본 정렬 (Default)</option>
+                  <option value="text-left">Left (왼쪽 정렬)</option>
+                  <option value="text-center">Center (가운데 정렬)</option>
+                  <option value="text-right">Right (오른쪽 정렬)</option>
+                  <option value="text-justify">Justify (양끝 정렬)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase block">글자 색상 (Text Color)</label>
+                <select
+                  value={config.color || ""}
+                  onChange={(e) => updateTextStyle(key, { color: e.target.value })}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="">기본 색상 (Default)</option>
+                  <option value="text-white">Pure White (순수 흰색)</option>
+                  <option value="text-slate-200">Off-White (부드러운 흰색)</option>
+                  <option value="text-zinc-300">Light Gray (밝은 회색)</option>
+                  <option value="text-zinc-400">Zinc Gray (기본 회색)</option>
+                  <option value="text-slate-500">Dim Gray (어두운 회색)</option>
+                  <option value="text-violet-500">Violet (보라색)</option>
+                  <option value="text-violet-400">Light Violet (연보라색)</option>
+                  <option value="text-emerald-400">Emerald Green (초록색)</option>
+                  <option value="text-sky-400">Sky Blue (하늘색)</option>
+                  <option value="text-amber-400">Amber Yellow (노란색)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] text-zinc-500 font-bold uppercase block">글자 굵기 (Font Weight)</label>
+                <select
+                  value={config.fontWeight || ""}
+                  onChange={(e) => updateTextStyle(key, { fontWeight: e.target.value })}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white focus:outline-none"
+                >
+                  <option value="">기본 굵기 (Default)</option>
+                  <option value="font-light">Light</option>
+                  <option value="font-normal">Normal</option>
+                  <option value="font-medium">Medium</option>
+                  <option value="font-semibold">Semibold</option>
+                  <option value="font-bold">Bold</option>
+                  <option value="font-extrabold">Extra Bold</option>
+                  <option value="font-black">Black</option>
+                </select>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (viewingCommerce) {
@@ -235,43 +481,62 @@ export default function Portfolio({
           </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center max-w-4xl">
-          <motion.span 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-violet-500 text-xs md:text-sm font-bold tracking-[0.3em] mb-6 block"
-          >
-            Visual Storyteller
-          </motion.span>
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-5xl md:text-8xl font-bold text-white leading-[1.1] mb-8 tracking-tighter"
-          >
-            3초 안에 시선을 <br/>붙잡는 촬영
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-slate-400 leading-relaxed text-lg md:text-2xl max-w-2xl mb-12 font-medium"
-          >
-            장면의 몰입도를 설계하는 영상 촬영자
-          </motion.p>
+          <div className="flex items-center gap-2 mb-6">
+            <motion.span 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`${getTextStyle('heroTagline', 'text-violet-500 text-xs md:text-sm font-bold tracking-[0.3em]')} whitespace-pre-line`}
+            >
+              {getText('heroTagline', 'Visual Storyteller')}
+            </motion.span>
+            {renderInlineEditor('heroTagline')}
+          </div>
+          <div className="flex items-start gap-4 mb-8">
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className={`${getTextStyle('heroHeadline', 'text-5xl md:text-8xl font-bold text-white leading-[1.1] tracking-tighter')} whitespace-pre-line flex-1`}
+            >
+              {getText('heroHeadline', '3초 안에 시선을 \n붙잡는 촬영')}
+            </motion.h1>
+            {renderInlineEditor('heroHeadline')}
+          </div>
+          <div className="flex items-start gap-4 mb-12">
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className={`${getTextStyle('heroParagraph', 'text-slate-400 leading-relaxed text-lg md:text-2xl max-w-2xl font-medium')} whitespace-pre-line flex-1`}
+            >
+              {getText('heroParagraph', '장면의 몰입도를 설계하는 영상 촬영자')}
+            </motion.p>
+            {renderInlineEditor('heroParagraph')}
+          </div>
 
           <div className="flex flex-wrap gap-6 pt-4">
-            <Button 
-              onClick={() => document.getElementById('works')?.scrollIntoView({ behavior: 'smooth' })}
-              className="liquid-glass hover:bg-white/10 text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl transition-all shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/30 overflow-hidden"
-            >
-              View Works
-            </Button>
-            <Button 
-              onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
-              className="liquid-glass bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl border border-white/10 transition-all overflow-hidden"
-            >
-              Discover More
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => document.getElementById('works')?.scrollIntoView({ behavior: 'smooth' })}
+                className="liquid-glass hover:bg-white/10 text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl transition-all shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/30 overflow-hidden"
+              >
+                <span className={`${getTextStyle('heroBtnWorks', 'font-black tracking-[0.2em] text-sm md:text-base')} whitespace-pre-line`}>
+                  {getText('heroBtnWorks', 'View Works')}
+                </span>
+              </Button>
+              {renderInlineEditor('heroBtnWorks')}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
+                className="liquid-glass bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl border border-white/10 transition-all overflow-hidden"
+              >
+                <span className={`${getTextStyle('heroBtnMore', 'font-black tracking-[0.2em] text-sm md:text-base')} whitespace-pre-line`}>
+                  {getText('heroBtnMore', 'Discover More')}
+                </span>
+              </Button>
+              {renderInlineEditor('heroBtnMore')}
+            </div>
           </div>
         </div>
       </section>
@@ -285,32 +550,47 @@ export default function Portfolio({
             {/* Left Column: Introduction & Vision */}
             <div className="space-y-16">
               <div className="relative pb-10 border-b border-white/5">
-                <motion.h2 
-                  initial={{ y: 20, opacity: 0 }}
-                  whileInView={{ y: 0, opacity: 1 }}
-                  className="text-5xl md:text-7xl font-black text-white tracking-tighter mb-4"
-                >
-                  {data.name}
-                </motion.h2>
+                <div className="flex items-start justify-between gap-4">
+                  <motion.h2 
+                    initial={{ y: 20, opacity: 0 }}
+                    whileInView={{ y: 0, opacity: 1 }}
+                    className={`${getTextStyle('aboutName', 'text-5xl md:text-7xl font-black text-white tracking-tighter mb-4')} whitespace-pre-line flex-1`}
+                  >
+                    {getText('aboutName', data.name)}
+                  </motion.h2>
+                  {renderInlineEditor('aboutName')}
+                </div>
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-[2px] bg-violet-500" />
-                  <p className="text-violet-500 text-sm md:text-base font-black tracking-[0.5em]">
-                    {data.role}
+                  <p className={`${getTextStyle('aboutRole', 'text-violet-500 text-sm md:text-base font-black tracking-[0.5em]')} whitespace-pre-line flex-1`}>
+                    {getText('aboutRole', data.role)}
                   </p>
+                  {renderInlineEditor('aboutRole')}
                 </div>
               </div>
 
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
-                  <h4 className="text-violet-500 text-xs font-black tracking-[0.3em]">Vision</h4>
+                  <h4 className={`${getTextStyle('aboutVisionHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} whitespace-pre-line`}>
+                    {getText('aboutVisionHeader', 'Vision')}
+                  </h4>
+                  {renderInlineEditor('aboutVisionHeader')}
                   <div className="h-[1px] flex-1 bg-white/5" />
                 </div>
-                <p className="text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter">
-                  {data.aboutHeadline}
-                </p>
-                <p className="text-zinc-400 text-lg md:text-xl leading-relaxed font-bold whitespace-pre-wrap border-l-2 border-violet-500/30 pl-6">
-                  {data.about}
-                </p>
+                
+                <div className="flex items-start justify-between gap-4">
+                  <p className={`${getTextStyle('aboutHeadline', 'text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter')} whitespace-pre-line flex-1`}>
+                    {getText('aboutHeadline', data.aboutHeadline)}
+                  </p>
+                  {renderInlineEditor('aboutHeadline')}
+                </div>
+                
+                <div className="flex items-start justify-between gap-4">
+                  <p className={`${getTextStyle('aboutDescription', 'text-zinc-400 text-lg md:text-xl leading-relaxed font-bold border-l-2 border-violet-500/30 pl-6')} whitespace-pre-line flex-1`}>
+                    {getText('aboutDescription', data.about)}
+                  </p>
+                  {renderInlineEditor('aboutDescription')}
+                </div>
               </div>
 
               {/* Goal Section as a highlighted card */}
@@ -322,10 +602,20 @@ export default function Portfolio({
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Activity className="w-16 h-16 text-violet-500" />
                 </div>
-                <h4 className="text-violet-500 text-xs font-black tracking-[0.3em] mb-6">Core Goal</h4>
-                <p className="text-zinc-300 text-xl font-bold italic leading-relaxed relative z-10">
-                  "{data.goal}"
-                </p>
+                
+                <div className="flex items-center gap-4 mb-6">
+                  <h4 className={`${getTextStyle('aboutGoalHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} whitespace-pre-line`}>
+                    {getText('aboutGoalHeader', 'Core Goal')}
+                  </h4>
+                  {renderInlineEditor('aboutGoalHeader')}
+                </div>
+                
+                <div className="flex items-start justify-between gap-4 relative z-10">
+                  <p className={`${getTextStyle('aboutGoal', 'text-zinc-300 text-xl font-bold italic leading-relaxed')} whitespace-pre-line flex-1`}>
+                    "{getText('aboutGoal', data.goal)}"
+                  </p>
+                  {renderInlineEditor('aboutGoal')}
+                </div>
               </motion.div>
             </div>
 
@@ -333,7 +623,10 @@ export default function Portfolio({
             <div className="space-y-16">
               <div className="space-y-12">
                 <div className="flex items-center gap-4">
-                  <h5 className="text-violet-500 text-xs font-black tracking-[0.3em]">{data.sectionTitles?.experience || 'Experience Journey'}</h5>
+                  <h5 className={`${getTextStyle('experienceHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} whitespace-pre-line`}>
+                    {getText('experienceHeader', data.sectionTitles?.experience || 'Experience Journey')}
+                  </h5>
+                  {renderInlineEditor('experienceHeader')}
                   <div className="h-[1px] flex-1 bg-white/5" />
                 </div>
                 
@@ -384,9 +677,17 @@ export default function Portfolio({
             <div>
               <div className="flex items-center gap-4 mb-4">
                  <div className="w-12 h-[1px] bg-violet-500" />
-                 <h2 className="text-violet-500 text-xs font-bold tracking-[0.3em]">Showcase</h2>
+                 <h2 className={`${getTextStyle('worksTagline', 'text-violet-500 text-xs font-bold tracking-[0.3em]')} whitespace-pre-line`}>
+                   {getText('worksTagline', 'Showcase')}
+                 </h2>
+                 {renderInlineEditor('worksTagline')}
               </div>
-              <h3 className="text-4xl md:text-6xl font-bold text-white tracking-tighter mb-12">{data.sectionTitles?.works || 'Activity History'}</h3>
+              <div className="flex items-start gap-4 mb-12">
+                <h3 className={`${getTextStyle('worksHeader', 'text-4xl md:text-6xl font-bold text-white tracking-tighter')} whitespace-pre-line flex-1`}>
+                  {getText('worksHeader', data.sectionTitles?.works || 'Activity History')}
+                </h3>
+                {renderInlineEditor('worksHeader')}
+              </div>
             </div>
           </div>
 
@@ -646,7 +947,7 @@ export default function Portfolio({
                       <label className="text-[9px] text-zinc-400 font-bold uppercase block">메인 헤드라인 (\n 으로 줄바꿈 구분)</label>
                       <input 
                         type="text"
-                        value={data.contactStyles?.headlineText ?? data.sectionTitles?.contactHeadline ?? "다음 프레임의 과정을\n함께하고 싶습니다."}
+                        value={data.contactStyles?.headlineText ?? data.sectionTitles?.contactHeadline ?? "Let's Build \nSomething Great"}
                         onChange={(e) => updateContactHeadline(e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white w-full focus:border-violet-500 font-medium"
                       />
@@ -811,7 +1112,7 @@ export default function Portfolio({
                             badgeAlign: "center",
                             headlineTracking: "tracking-tight"
                           });
-                          updateContactHeadline("다음 프레임의 과정을\n함께하고 싶습니다.");
+                          updateContactHeadline("Let's Build\nSomething Great");
                         }}
                         className="text-left text-[11px] p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/30 hover:bg-violet-500/5 text-zinc-350 hover:text-white transition-all font-semibold flex flex-col gap-0.5 cursor-pointer"
                       >
@@ -863,7 +1164,7 @@ export default function Portfolio({
                 data.contactStyles?.badgeAlign === 'right' ? 'text-right' : 
                 'text-left'
               }`}>
-                {data.contactStyles?.headlineText?.replace(/\\n/g, '\n') || data.sectionTitles?.contactHeadline || "다음 프레임의 과정을\n함께하고 싶습니다."}
+                {data.contactStyles?.headlineText?.replace(/\\n/g, '\n') || data.sectionTitles?.contactHeadline || "Let's Build \nSomething Great"}
               </h3>
 
               {/* Motto / Connection Phrase */}

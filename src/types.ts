@@ -27,10 +27,7 @@ export interface PortfolioItem {
   commercePillar2Desc?: string;
   commercePillar3Title?: string;
   commercePillar3Desc?: string;
-  commerceCtaTitle?: string;
-  commerceCtaDesc?: string;
   commerceResolution?: string;
-  commerceOperator?: string;
 }
 
 export interface ExperienceItem {
@@ -112,6 +109,17 @@ export interface ContactStyles {
   mottoTracking?: string;
 }
 
+export interface TextStyleConfig {
+  text: string;
+  fontSize?: string;
+  tracking?: string;
+  align?: string;
+  fontWeight?: string;
+  fontStyle?: string;
+  fontFamily?: string;
+  color?: string;
+}
+
 export interface PortfolioData {
   name: string;
   role: string;
@@ -123,11 +131,11 @@ export interface PortfolioData {
     email: string;
     phone: string;
   };
-  stats: StatItem[];
   items: PortfolioItem[];
   experiences: ExperienceItem[];
-  gear: GearItem[];
-  btsImages: BtsImage[];
+  stats?: StatItem[];
+  gear?: GearItem[];
+  btsImages?: BtsImage[];
   groupCovers?: Record<string, string>;
   groupTitles?: Record<string, string>;
   sectionTitles?: {
@@ -139,4 +147,5 @@ export interface PortfolioData {
   };
   categoryTitles?: Record<string, string>;
   contactStyles?: ContactStyles;
+  textStyles?: Record<string, TextStyleConfig>;
 }
