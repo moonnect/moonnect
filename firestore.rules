@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Allow public read and write access on the portfolio collection documents 
+    // to support our password-verified Admin dashboard editing and public visits.
+    match /portfolio/{document} {
+      allow read, write: if true;
+    }
+  }
+}

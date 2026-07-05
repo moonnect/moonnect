@@ -10,9 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PortfolioData, PortfolioItem, ExperienceItem } from '@/types';
-import { Trash2, Plus, LogOut, Save, Crop as CropIcon, X, Eye, Copy, Check } from 'lucide-react';
+import { Trash2, Plus, LogOut, Save, Crop as CropIcon, X, Eye, Copy, Check, Database, Server, RefreshCw, Wifi, WifiOff, CloudLightning, ExternalLink } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getYoutubeId, getProcessedImageUrl } from '@/lib/utils';
+import { getDbConfig, saveDbConfig, type DbConfig, type DbProvider } from '@/lib/db';
 
 // Helper function to create an image from URL
 const createImage = (url: string): Promise<HTMLImageElement> =>
@@ -106,14 +107,39 @@ const compressImage = async (file: File, maxDim = 900, quality = 0.65): Promise<
 
 interface AdminProps {
   data: PortfolioData;
-  onUpdate: (data: PortfolioData) => void;
+  onUpdate: (data: PortfolioData) => Promise<{ success: boolean; provider: DbProvider; error?: string }>;
   onLogout: () => void;
   onGoToPreview?: () => void;
+  isSaving?: boolean;
+  provider?: DbProvider;
+  refreshData?: () => Promise<void>;
 }
 
-export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: AdminProps) {
+export default function Admin({ 
+  data, 
+  onUpdate, 
+  onLogout, 
+  onGoToPreview,
+  isSaving = false,
+  provider = "local",
+  refreshData
+}: AdminProps) {
   const [localData, setLocalData] = useState<PortfolioData>(data);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+
+  // DB Config State
+  const [dbConfig, setDbConfig] = useState<DbConfig>(() => getDbConfig());
+  const [fbApiKey, setFbApiKey] = useState(dbConfig.firebase?.apiKey || '');
+  const [fbAuthDomain, setFbAuthDomain] = useState(dbConfig.firebase?.authDomain || '');
+  const [fbProjectId, setFbProjectId] = useState(dbConfig.firebase?.projectId || '');
+  const [fbStorageBucket, setFbStorageBucket] = useState(dbConfig.firebase?.storageBucket || '');
+  const [fbMessagingSenderId, setFbMessagingSenderId] = useState(dbConfig.firebase?.messagingSenderId || '');
+  const [fbAppId, setFbAppId] = useState(dbConfig.firebase?.appId || '');
+
+  const [sbUrl, setSbUrl] = useState(dbConfig.supabase?.url || '');
+  const [sbAnonKey, setSbAnonKey] = useState(dbConfig.supabase?.anonKey || '');
+
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   const groupedItems = localData.items.reduce((groups: { [key: string]: PortfolioItem[] }, item) => {
     const category = item.category || 'Uncategorized';
@@ -192,9 +218,78 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
     }
   };
 
-  const save = () => {
-    onUpdate(localData);
-    alert('저장되었습니다.');
+  const [isSavingLocal, setIsSavingLocal] = useState(false);
+
+  const save = async () => {
+    setIsSavingLocal(true);
+    try {
+      const result = await onUpdate(localData);
+      if (result && !result.success) {
+        alert(`⚠️ 저장 중 오류가 발생했습니다:\n${result.error || '알 수 없는 오류'}`);
+      } else {
+        const providerName = 
+          result?.provider === 'firebase' ? 'Firebase Firestore (클라우드)' : 
+          result?.provider === 'supabase' ? 'Supabase (클라우드)' : 
+          '로컬 브라우저 저장소';
+        alert(`✅ ${providerName}에 성공적으로 저장되었습니다!`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('저장 중 시스템 오류가 발생했습니다.');
+    } finally {
+      setIsSavingLocal(false);
+    }
+  };
+
+  const handleSaveDbConfig = async (providerType: DbProvider) => {
+    setIsTestingConnection(true);
+    
+    const newConfig: DbConfig = {
+      provider: providerType,
+      firebase: providerType === "firebase" ? {
+        apiKey: fbApiKey,
+        authDomain: fbAuthDomain,
+        projectId: fbProjectId,
+        storageBucket: fbStorageBucket,
+        messagingSenderId: fbMessagingSenderId,
+        appId: fbAppId,
+      } : dbConfig.firebase,
+      supabase: providerType === "supabase" ? {
+        url: sbUrl,
+        anonKey: sbAnonKey,
+      } : dbConfig.supabase,
+    };
+
+    try {
+      // 1. 임시로 설정을 로컬에 쓰고 인스턴스 초기화 유도
+      saveDbConfig(newConfig);
+      
+      // 2. 새로운 DB에 데이터 쓰기 연동 테스트
+      const testResult = await onUpdate(localData);
+      
+      if (testResult && !testResult.success) {
+        throw new Error(testResult.error || "DB 저장 테스트 실패");
+      }
+      
+      setDbConfig(newConfig);
+      if (refreshData) {
+        await refreshData();
+      }
+      
+      const providerLabel = 
+        providerType === "firebase" ? "Firebase Firestore" : 
+        providerType === "supabase" ? "Supabase" : 
+        "로컬 브라우저 저장소";
+        
+      alert(`🎉 [${providerLabel}] 연결 성공 및 데이터 동기화 완료!\n이제 모든 방문자에게 실시간으로 반영됩니다.`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`⚠️ DB 연결에 실패했습니다. 설정값을 다시 확인해 주세요.\n\n에러 내용: ${err.message || err}`);
+      // 실패 시 이전 설정 원복
+      saveDbConfig(dbConfig);
+    } finally {
+      setIsTestingConnection(false);
+    }
   };
 
   const addItem = () => {
@@ -224,24 +319,63 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-12">
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 border-b border-white/5 pb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+              <Server className="w-8 h-8 text-violet-500" />
+              Admin Dashboard
+            </h1>
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                provider === "firebase" ? "bg-violet-500/10 text-violet-400 border border-violet-500/20" :
+                provider === "supabase" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                "bg-zinc-800 text-zinc-400 border border-zinc-700"
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  provider === "local" ? "bg-zinc-500" : "bg-emerald-400 animate-pulse"
+                }`} />
+                {provider === "firebase" ? "Firebase Firestore (클라우드 DB)" :
+                 provider === "supabase" ? "Supabase Realtime (클라우드 DB)" :
+                 "로컬 브라우저 저장소 (localStorage)"}
+              </span>
+              {isSavingLocal && (
+                <span className="text-[11px] text-zinc-500 flex items-center gap-1.5 animate-pulse ml-2">
+                  <RefreshCw className="w-3 h-3 animate-spin text-violet-500" />
+                  실시간 클라우드 백업 중...
+                </span>
+              )}
+            </div>
+          </div>
           <div className="flex gap-4">
             {onGoToPreview && (
               <Button 
-                onClick={() => {
-                  onUpdate(localData);
+                onClick={async () => {
+                  await onUpdate(localData);
                   onGoToPreview();
                 }} 
-                className="bg-violet-600 hover:bg-violet-700 font-bold text-white"
+                className="bg-violet-600 hover:bg-violet-700 font-bold text-white shadow-lg shadow-violet-500/10"
               >
                 <Eye className="w-4 h-4 mr-2" /> 라이브 상세페이지 실시간 편집
               </Button>
             )}
-            <Button onClick={save} className="bg-emerald-600 hover:bg-emerald-700">
-              <Save className="w-4 h-4 mr-2" /> 저장하기
+            <Button 
+              onClick={save} 
+              disabled={isSavingLocal}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-500/10 disabled:bg-emerald-800"
+            >
+              {isSavingLocal ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  저장하기
+                </>
+              )}
             </Button>
-            <Button variant="outline" onClick={onLogout}>
+            <Button variant="outline" onClick={onLogout} className="border-white/5 bg-white/5 hover:bg-white/10 text-zinc-300">
               <LogOut className="w-4 h-4 mr-2" /> 로그아웃
             </Button>
           </div>
@@ -252,6 +386,7 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
             <TabsTrigger value="portfolio">포트폴리오</TabsTrigger>
             <TabsTrigger value="about">정보 관리</TabsTrigger>
             <TabsTrigger value="experience">경력</TabsTrigger>
+            <TabsTrigger value="database" className="text-emerald-400 font-bold">📡 클라우드 DB 연동</TabsTrigger>
             <TabsTrigger value="export" className="text-violet-400 font-bold">GitHub 배포 지원</TabsTrigger>
           </TabsList>
 
@@ -1508,6 +1643,331 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
                   <Plus className="w-4 h-4 mr-2" /> 경력 추가
                </Button>
              </div>
+          </TabsContent>
+
+          <TabsContent value="database">
+            <div className="space-y-6">
+              {/* Main DB Status Card */}
+              <Card className="bg-zinc-900 border-zinc-800 text-zinc-100 p-6 rounded-3xl">
+                <CardHeader className="px-0 pt-0">
+                  <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                    <Database className="w-5 h-5 text-emerald-400" />
+                    클라우드 데이터베이스 연동 및 다중 기기 실시간 동기화
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-0 space-y-6">
+                  <div className="bg-zinc-950 p-4 rounded-xl border border-white/5 text-sm leading-relaxed text-zinc-300 space-y-3">
+                    <p>
+                      기본적으로 이 대시보드에서 수정한 모든 내용(텍스트, 색상, 레이아웃, 크롭한 사진 등)은 <strong>로컬 브라우저 저장소(localStorage)</strong>에 저장됩니다. 
+                      이 방식은 로그인한 브라우저 한 곳에서만 편집 내용이 보이며 다른 기기나 외부 사람들에게는 원래 초기화면으로 나타납니다.
+                    </p>
+                    <p>
+                      <strong className="text-emerald-400">💡 클라우드 데이터베이스(Firebase/Supabase)와 연동하면:</strong>
+                    </p>
+                    <p className="pl-4 border-l-2 border-emerald-500/30 text-zinc-400">
+                      • <strong>실시간 전역 저장:</strong> 어떤 기기(모바일/데스크톱)나 어떤 브라우저에서 수정해도, 클라우드에 영구 기록되어 전 세계 방문자가 수정된 예쁜 포트폴리오 화면을 동일하게 볼 수 있습니다.<br />
+                      • <strong>안전한 영구 백업:</strong> 브라우저 쿠키나 캐시를 모두 삭제해도 데이터가 손실되지 않고 안전하게 보존됩니다.<br />
+                      • <strong>용량 초과 완벽 해결:</strong> 로컬 브라우저의 5MB 용량 한계를 완전히 탈피하여 대형 이미지나 여러 편의 작품도 자유롭게 등록할 수 있습니다.
+                    </p>
+                  </div>
+
+                  {/* Provider Selection */}
+                  <div className="space-y-3 border-t border-white/5 pt-4">
+                    <Label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">사용할 데이터베이스 플랫폼 선택</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* Local Provider */}
+                      <button
+                        onClick={() => handleSaveDbConfig("local")}
+                        disabled={isTestingConnection}
+                        className={`p-4 rounded-xl text-left border flex flex-col justify-between h-28 transition-all cursor-pointer ${
+                          dbConfig.provider === "local" 
+                            ? "bg-zinc-800/80 border-zinc-700 ring-1 ring-zinc-600" 
+                            : "bg-zinc-950 border-white/5 hover:bg-zinc-900/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 text-zinc-400 font-bold text-xs">
+                          <WifiOff className="w-4 h-4 text-zinc-500" />
+                          로컬 브라우저 (localStorage)
+                        </div>
+                        <p className="text-[10px] text-zinc-500 leading-relaxed mt-2">
+                          추가 가입이나 설정 없이, 현재 브라우저에 임시로 편집 내역을 기록합니다.
+                        </p>
+                        <div className="text-[10px] font-bold text-zinc-500 mt-2">
+                          {dbConfig.provider === "local" ? "현재 사용 중" : "전환하기"}
+                        </div>
+                      </button>
+
+                      {/* Firebase Firestore */}
+                      <button
+                        onClick={() => setDbConfig(prev => ({ ...prev, provider: "firebase" }))}
+                        disabled={isTestingConnection}
+                        className={`p-4 rounded-xl text-left border flex flex-col justify-between h-28 transition-all cursor-pointer ${
+                          dbConfig.provider === "firebase" 
+                            ? "bg-violet-950/30 border-violet-800 ring-1 ring-violet-700" 
+                            : "bg-zinc-950 border-white/5 hover:bg-zinc-900/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 text-violet-400 font-bold text-xs">
+                          <Database className="w-4 h-4" />
+                          Firebase Firestore (추천)
+                        </div>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed mt-2">
+                          구글의 완전 무료 NoSQL 데이터베이스입니다. 1분 만에 구성이 끝나며 가장 안정적인 연동을 제공합니다.
+                        </p>
+                        <div className="text-[10px] font-bold text-violet-500 mt-2">
+                          {dbConfig.provider === "firebase" ? "선택됨" : "클릭하여 구성하기"}
+                        </div>
+                      </button>
+
+                      {/* Supabase */}
+                      <button
+                        onClick={() => setDbConfig(prev => ({ ...prev, provider: "supabase" }))}
+                        disabled={isTestingConnection}
+                        className={`p-4 rounded-xl text-left border flex flex-col justify-between h-28 transition-all cursor-pointer ${
+                          dbConfig.provider === "supabase" 
+                            ? "bg-emerald-950/30 border-emerald-800 ring-1 ring-emerald-700" 
+                            : "bg-zinc-950 border-white/5 hover:bg-zinc-900/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                          <CloudLightning className="w-4 h-4" />
+                          Supabase Database
+                        </div>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed mt-2">
+                          오픈소스 PostgreSQL 대체 서비스입니다. SQL 구문을 이용한 강력한 리포팅 및 구조적 쿼리가 가능합니다.
+                        </p>
+                        <div className="text-[10px] font-bold text-emerald-500 mt-2">
+                          {dbConfig.provider === "supabase" ? "선택됨" : "클릭하여 구성하기"}
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Config Fields: Firebase */}
+                  {dbConfig.provider === "firebase" && (
+                    <div className="space-y-4 border-t border-white/5 pt-6 bg-violet-950/5 p-5 rounded-2xl border border-violet-500/10 animate-fadeIn">
+                      <div className="flex items-center gap-2">
+                        <Database className="w-4.5 h-4.5 text-violet-400" />
+                        <h4 className="text-sm font-bold text-white">Firebase Firestore 설정 정보 입력</h4>
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        Firebase 웹 앱 생성 시 제공되는 구성 객체(firebaseConfig)의 값들을 그대로 붙여넣어 주세요.
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">API Key (apiKey)</Label>
+                          <Input
+                            type="password"
+                            value={fbApiKey}
+                            onChange={(e) => setFbApiKey(e.target.value)}
+                            placeholder="AIzaSy..."
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">Project ID (projectId)</Label>
+                          <Input
+                            type="text"
+                            value={fbProjectId}
+                            onChange={(e) => setFbProjectId(e.target.value)}
+                            placeholder="my-portfolio-app"
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">Auth Domain (authDomain)</Label>
+                          <Input
+                            type="text"
+                            value={fbAuthDomain}
+                            onChange={(e) => setFbAuthDomain(e.target.value)}
+                            placeholder="my-portfolio-app.firebaseapp.com"
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">App ID (appId)</Label>
+                          <Input
+                            type="text"
+                            value={fbAppId}
+                            onChange={(e) => setFbAppId(e.target.value)}
+                            placeholder="1:123456789:web:abcdef"
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">Storage Bucket (storageBucket)</Label>
+                          <Input
+                            type="text"
+                            value={fbStorageBucket}
+                            onChange={(e) => setFbStorageBucket(e.target.value)}
+                            placeholder="my-portfolio-app.appspot.com"
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">Messaging Sender ID (messagingSenderId)</Label>
+                          <Input
+                            type="text"
+                            value={fbMessagingSenderId}
+                            onChange={(e) => setFbMessagingSenderId(e.target.value)}
+                            placeholder="1234567890"
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          onClick={() => handleSaveDbConfig("firebase")}
+                          disabled={isTestingConnection || !fbApiKey || !fbProjectId}
+                          className="bg-violet-600 hover:bg-violet-500 text-white font-bold h-11 px-6 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-violet-500/10 cursor-pointer"
+                        >
+                          {isTestingConnection ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              연결 상태 테스트 중...
+                            </>
+                          ) : (
+                            <>
+                              <Wifi className="w-3.5 h-3.5" />
+                              연결 테스트 및 Firestore 데이터 활성화하기
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Setup Instructions for Firebase */}
+                      <div className="mt-6 border-t border-white/5 pt-6 space-y-3">
+                        <Label className="text-xs font-bold text-white uppercase tracking-wider block">🛠️ Firebase 1분 초간단 설정 가이드</Label>
+                        <ol className="text-xs text-zinc-400 space-y-2 list-decimal pl-4 leading-relaxed">
+                          <li>
+                            <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-violet-400 hover:underline inline-flex items-center gap-1 font-semibold">Firebase 콘솔 <ExternalLink className="w-3 h-3" /></a>에 구글 계정으로 로그인 후 <strong>[프로젝트 추가]</strong>를 누릅니다.
+                          </li>
+                          <li>
+                            프로젝트 생성 후 화면 중앙의 <strong>[&lt;/&gt; 웹(Web)]</strong> 아이콘을 눌러 앱을 등록합니다.
+                          </li>
+                          <li>
+                            화면에 나타난 <code>const firebaseConfig = &#123; ... &#125;</code>의 항목별 내용을 위 입력창에 하나씩 복사해서 붙여넣습니다.
+                          </li>
+                          <li>
+                            좌측 메뉴에서 <strong>[빌드] ➔ [Firestore Database]</strong>를 클릭하고 <strong>[데이터베이스 만들기]</strong>를 실행합니다.
+                          </li>
+                          <li>
+                            위치 설정 후 다음 단계에서 보안 규칙을 <strong>[테스트 모드에서 시작]</strong>으로 선택하고 생성해 주세요. (또는 하단의 보안 규칙을 그대로 적용해 주세요.)
+                          </li>
+                        </ol>
+
+                        {/* Rules Code Snippet */}
+                        <div className="bg-zinc-950 rounded-xl p-4 border border-white/5 space-y-2 mt-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-mono text-zinc-500">Firestore 보안 규칙 (Firestore Security Rules)</span>
+                          </div>
+                          <pre className="text-[10px] font-mono text-zinc-400 overflow-x-auto whitespace-pre leading-relaxed">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /portfolio/{document} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Config Fields: Supabase */}
+                  {dbConfig.provider === "supabase" && (
+                    <div className="space-y-4 border-t border-white/5 pt-6 bg-emerald-950/5 p-5 rounded-2xl border border-emerald-500/10 animate-fadeIn">
+                      <div className="flex items-center gap-2">
+                        <CloudLightning className="w-4.5 h-4.5 text-emerald-400" />
+                        <h4 className="text-sm font-bold text-white">Supabase API 설정 정보 입력</h4>
+                      </div>
+                      <p className="text-[11px] text-zinc-400">
+                        Supabase 프로젝트의 API 주소(URL) 및 익명 공개 키(anon key)를 정확히 입력해 주세요.
+                      </p>
+
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">Project URL (url)</Label>
+                          <Input
+                            type="text"
+                            value={sbUrl}
+                            onChange={(e) => setSbUrl(e.target.value)}
+                            placeholder="https://your-project.supabase.co"
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] text-zinc-500 font-black">Anon Key (anonKey)</Label>
+                          <Input
+                            type="password"
+                            value={sbAnonKey}
+                            onChange={(e) => setSbAnonKey(e.target.value)}
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            className="bg-zinc-950 border-zinc-800 h-10 text-xs text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          onClick={() => handleSaveDbConfig("supabase")}
+                          disabled={isTestingConnection || !sbUrl || !sbAnonKey}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-11 px-6 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/10 cursor-pointer"
+                        >
+                          {isTestingConnection ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              연결 상태 테스트 중...
+                            </>
+                          ) : (
+                            <>
+                              <Wifi className="w-3.5 h-3.5" />
+                              연결 테스트 및 Supabase 데이터 활성화하기
+                            </>
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Setup Instructions for Supabase */}
+                      <div className="mt-6 border-t border-white/5 pt-6 space-y-3">
+                        <Label className="text-xs font-bold text-white uppercase tracking-wider block">🛠️ Supabase 테이블 및 RLS 규칙 가이드</Label>
+                        <p className="text-xs text-zinc-400 leading-relaxed">
+                          Supabase 연동을 시작하기 전에 아래 SQL 코드를 복사하여 Supabase의 <strong>SQL Editor</strong>에 붙여넣고 <strong>[Run]</strong>을 반드시 눌러 테이블을 한 번 생성해 주셔야 합니다.
+                        </p>
+
+                        {/* SQL Code Snippet */}
+                        <div className="bg-zinc-950 rounded-xl p-4 border border-white/5 space-y-2 mt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-mono text-zinc-500">Supabase SQL Editor 실행 스크립트</span>
+                          </div>
+                          <pre className="text-[10px] font-mono text-zinc-400 overflow-x-auto whitespace-pre leading-relaxed">
+{`-- 1. 포트폴리오 데이터를 저장할 테이블을 생성합니다.
+create table if not exists public.portfolio (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2. 행 보안 규칙(RLS)을 임시 승인하거나 누구나 접근 가능하게 설정합니다.
+alter table public.portfolio enable row level security;
+
+create policy "Allow read for anyone" on public.portfolio 
+  for select using (true);
+
+create policy "Allow write for anyone" on public.portfolio 
+  for all using (true);`}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="export">

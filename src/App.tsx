@@ -20,7 +20,7 @@ import { Lock } from 'lucide-react';
 const ADMIN_PASSWORD = '9865';
 
 export default function App() {
-  const { data, updateData, isLoading } = usePortfolio();
+  const { data, updateData, isLoading, isSaving, provider, refreshData } = usePortfolio();
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [password, setPassword] = useState('');
@@ -68,6 +68,9 @@ export default function App() {
               onUpdate={updateData} 
               onLogout={handleLogout} 
               onGoToPreview={() => setViewMode('preview')}
+              isSaving={isSaving}
+              provider={provider}
+              refreshData={refreshData}
             />
           </motion.div>
         ) : (

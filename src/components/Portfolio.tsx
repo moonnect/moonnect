@@ -1079,6 +1079,17 @@ export default function Portfolio({
                             <p className="text-slate-300 text-sm font-medium">{item.role}</p>
                           </div>
                         )}
+                        {item.category === 'COMMERCE' && (
+                          <div className="mt-6 pt-4 border-t border-white/5 transition-colors group-hover:border-violet-500/20">
+                            <Button
+                              onClick={() => setViewingCommerce(item)}
+                              className="w-full sm:w-auto liquid-glass hover:bg-violet-600/25 text-white font-black tracking-widest text-[10px] px-6 py-3.5 h-auto rounded-xl border border-violet-500/30 hover:border-violet-500/60 transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/5 cursor-pointer"
+                            >
+                              <Icons.ExternalLink size={12} className="text-violet-400" />
+                              <span>상세설명 보기 (View Case Study)</span>
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   ))}

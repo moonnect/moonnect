@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Firebase 및 환경변수 보안 파일 제외
+.env
+.env.local
+firebase-applet-config.json
+firebase-blueprint.json
