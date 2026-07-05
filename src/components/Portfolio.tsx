@@ -233,14 +233,25 @@ export default function Portfolio({
     
     if (isEditing) {
       return (
-        <div className="relative w-full pointer-events-auto my-2" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="relative w-full pointer-events-auto my-2 bg-violet-600/15 border border-violet-500/50 rounded-2xl p-2 shadow-xl shadow-violet-500/5" 
+          onClick={(e) => e.stopPropagation()}
+        >
           <textarea
+            ref={(el) => {
+              if (el) {
+                el.style.height = 'auto';
+                el.style.height = el.scrollHeight + 'px';
+              }
+            }}
             value={text}
-            onChange={(e) => updateTextStyle(key, { text: e.target.value })}
-            className={`w-full bg-violet-600/20 border-2 border-violet-500/60 rounded-xl p-3 focus:outline-none focus:ring-4 focus:ring-violet-500/30 text-white resize-y font-sans leading-normal overflow-hidden ${classes}`}
-            rows={Math.max(1, text.split('\n').length)}
+            onChange={(e) => {
+              updateTextStyle(key, { text: e.target.value });
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            className={`w-full bg-transparent border-0 focus:ring-0 focus:outline-none resize-none overflow-hidden p-1 text-white ${classes}`}
             autoFocus
-            style={{ minHeight: '3em', height: 'auto' }}
           />
           <div className="absolute -top-4 right-2 flex gap-1.5 z-50 shadow-2xl">
             <button
@@ -518,6 +529,7 @@ export default function Portfolio({
               src={getProcessedImageUrl(data.heroImage) || "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&q=80&w=2000"} 
               className="w-full h-full object-cover opacity-40 shadow-2xl transition-all duration-1000"
               alt="Hero Cinematic"
+              referrerPolicy="no-referrer"
             />
             {isAdmin && (
               <div className="absolute top-28 right-8 z-[60]">
@@ -962,6 +974,7 @@ export default function Portfolio({
                               src={getProcessedImageUrl(data.groupCovers?.[item.group || ''] || item.thumbnailUrl || (item.videoUrl ? `https://img.youtube.com/vi/${getYoutubeId(item.videoUrl)}/maxresdefault.jpg` : ''))} 
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60" 
                               alt={item.title} 
+                              referrerPolicy="no-referrer"
                             />
                             {/* Stack Effect */}
                             <div className="absolute top-4 right-4 z-20">
@@ -993,6 +1006,7 @@ export default function Portfolio({
                                src={getProcessedImageUrl(item.thumbnailUrl || (item.images && item.images[0]) || '')} 
                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                                alt={item.title} 
+                               referrerPolicy="no-referrer"
                              />
                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2.5 backdrop-blur-sm">
                                <Button 
@@ -1036,6 +1050,7 @@ export default function Portfolio({
                                 src={getProcessedImageUrl(item.thumbnailUrl)} 
                                 className="w-full h-full object-cover" 
                                 alt={item.title} 
+                                referrerPolicy="no-referrer"
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-700 bg-slate-900">
@@ -1611,6 +1626,7 @@ export default function Portfolio({
                       src={getProcessedImageUrl(img)} 
                       className="w-full h-auto block group-hover:scale-105 transition-transform duration-700" 
                       alt={`Gallery item ${idx}`} 
+                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     
@@ -1719,6 +1735,7 @@ export default function Portfolio({
                       src={getProcessedImageUrl(localItem.thumbnailUrl || '')} 
                       className="w-full h-full object-cover opacity-20 filter blur-sm scale-105" 
                       alt="Banner background" 
+                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#07060a] via-[#07060a]/90 to-[#07060a]/70" />
                     {isAdmin && (
