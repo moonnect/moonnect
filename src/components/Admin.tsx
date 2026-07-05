@@ -113,6 +113,7 @@ interface AdminProps {
 
 export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: AdminProps) {
   const [localData, setLocalData] = useState<PortfolioData>(data);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
 
   const groupedItems = localData.items.reduce((groups: { [key: string]: PortfolioItem[] }, item) => {
     const category = item.category || 'Uncategorized';
@@ -197,12 +198,13 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
   };
 
   const addItem = () => {
+    const defaultCategory = selectedCategoryFilter === 'ALL' ? 'General' : selectedCategoryFilter;
     const newItem: PortfolioItem = {
       id: Math.random().toString(36).substr(2, 9),
       title: 'New Video',
       description: 'Description',
       videoUrl: 'https://www.youtube.com/embed/...',
-      category: 'General',
+      category: defaultCategory,
       order: localData.items.length,
     };
     setLocalData({ ...localData, items: [...localData.items, newItem] });
@@ -367,16 +369,53 @@ export default function Admin({ data, onUpdate, onLogout, onGoToPreview }: Admin
               </section>
 
               <div className="pt-8 border-t border-zinc-800">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-bold text-white tracking-tight">Individual Projects</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Individual Projects</h3>
+                    <p className="text-xs text-zinc-500 mt-1">개별 포트폴리오 영상들을 카테고리별로 나누어 쉽게 관리할 수 있습니다.</p>
+                  </div>
                   <Button variant="outline" onClick={addItem} className="border-violet-500/30 text-violet-400 hover:bg-violet-500/10">
                     <Plus className="w-4 h-4 mr-2" /> 새 영상 추가
                   </Button>
                 </div>
+
+                {/* Category filtering tab buttons inside Admin portfolio */}
+                <div className="flex flex-wrap gap-2 mb-8 bg-zinc-950/60 p-2 rounded-2xl border border-zinc-800/80 w-fit">
+                  <button
+                    onClick={() => setSelectedCategoryFilter('ALL')}
+                    className={`px-4 py-2 rounded-xl text-xs font-black tracking-wider transition-all duration-300 ${
+                      selectedCategoryFilter === 'ALL'
+                        ? 'bg-violet-600 text-white shadow-lg'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    전체보기 ({localData.items.length})
+                  </button>
+                  {Object.keys(groupedItems).map((catName) => {
+                    const localizedName = localData.categoryTitles?.[catName] || catName;
+                    const count = groupedItems[catName]?.length || 0;
+                    return (
+                      <button
+                        key={catName}
+                        onClick={() => setSelectedCategoryFilter(catName)}
+                        className={`px-4 py-2 rounded-xl text-xs font-black tracking-wider transition-all duration-300 ${
+                          selectedCategoryFilter === catName
+                            ? 'bg-violet-600 text-white shadow-lg'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {localizedName} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {localData.items.sort((a,b) => a.order - b.order).map((item) => (
-                    <Card key={item.id} className="bg-zinc-900 border-zinc-800 text-zinc-100 overflow-hidden">
+                  {localData.items
+                    .filter((item) => selectedCategoryFilter === 'ALL' || item.category === selectedCategoryFilter)
+                    .sort((a,b) => a.order - b.order)
+                    .map((item) => (
+                      <Card key={item.id} className="bg-zinc-900 border-zinc-800 text-zinc-100 overflow-hidden">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Video ID: {item.id}</CardTitle>
                     <Button variant="ghost" size="icon" onClick={() => deleteItem(item.id)} className="text-zinc-500 hover:text-red-500">

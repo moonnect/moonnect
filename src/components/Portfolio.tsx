@@ -220,6 +220,58 @@ export default function Portfolio({
     );
   };
 
+  const renderInlineEditable = (
+    key: string,
+    defaultText: string,
+    defaultClasses: string,
+    renderElement: (classes: string, highlightClass: string, text: string) => React.ReactNode
+  ) => {
+    const isEditing = isAdmin && activeEditorKey === key;
+    const text = getText(key, defaultText);
+    const classes = getTextStyle(key, defaultClasses);
+    const highlight = getHighlightClass(key);
+    
+    if (isEditing) {
+      return (
+        <div className="relative w-full pointer-events-auto my-2" onClick={(e) => e.stopPropagation()}>
+          <textarea
+            value={text}
+            onChange={(e) => updateTextStyle(key, { text: e.target.value })}
+            className={`w-full bg-violet-600/20 border-2 border-violet-500/60 rounded-xl p-3 focus:outline-none focus:ring-4 focus:ring-violet-500/30 text-white resize-y font-sans leading-normal overflow-hidden ${classes}`}
+            rows={Math.max(1, text.split('\n').length)}
+            autoFocus
+            style={{ minHeight: '3em', height: 'auto' }}
+          />
+          <div className="absolute -top-4 right-2 flex gap-1.5 z-50 shadow-2xl">
+            <button
+              onClick={(e) => { e.stopPropagation(); setActiveEditorKey(null); }}
+              className="p-1.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-[10px] flex items-center gap-1 active:scale-95 transition-all shadow-[0_4px_12px_rgba(16,185,129,0.3)] border border-emerald-400/20"
+              title="저장"
+            >
+              <Icons.Check size={11} />
+              <span>완료</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setActiveEditorKey(null); }}
+              className="p-1.5 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-extrabold text-[10px] flex items-center gap-1 active:scale-95 transition-all shadow-md border border-white/10"
+              title="닫기"
+            >
+              <Icons.X size={11} />
+              <span>닫기</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="relative group w-full">
+        {renderElement(classes, highlight, text)}
+        {renderInlineEditor(key)}
+      </div>
+    );
+  };
+
   useEffect(() => {
     if (viewingCommerce) {
       setEditingCommerceItem({ ...viewingCommerce });
@@ -503,61 +555,91 @@ export default function Portfolio({
           </div>
 
         <div className="relative z-10 flex-1 flex flex-col justify-center max-w-4xl">
-          <div className="relative group mb-6 inline-block w-fit">
-            <motion.span 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`${getTextStyle('heroTagline', 'text-violet-500 text-xs md:text-sm font-bold tracking-[0.3em]')} ${getHighlightClass('heroTagline')} block`}
-            >
-              {getText('heroTagline', 'Visual Storyteller')}
-            </motion.span>
-            {renderInlineEditor('heroTagline')}
+          <div className="mb-6 inline-block w-fit">
+            {renderInlineEditable(
+              'heroTagline',
+              'Visual Storyteller',
+              'text-violet-500 text-xs md:text-sm font-bold tracking-[0.3em]',
+              (classes, highlight, text) => (
+                <motion.span 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`${classes} ${highlight} block`}
+                >
+                  {text}
+                </motion.span>
+              )
+            )}
           </div>
-          <div className="relative group mb-8 w-full">
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className={`${getTextStyle('heroHeadline', 'text-5xl md:text-8xl font-bold text-white leading-[1.1] tracking-tighter')} ${getHighlightClass('heroHeadline')} block`}
-            >
-              {getText('heroHeadline', '3초 안에 시선을 \n붙잡는 촬영')}
-            </motion.h1>
-            {renderInlineEditor('heroHeadline')}
+          <div className="mb-8 w-full">
+            {renderInlineEditable(
+              'heroHeadline',
+              '3초 안에 시선을 \n붙잡는 촬영',
+              'text-5xl md:text-8xl font-bold text-white leading-[1.1] tracking-tighter',
+              (classes, highlight, text) => (
+                <motion.h1 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className={`${classes} ${highlight} block`}
+                >
+                  {text}
+                </motion.h1>
+              )
+            )}
           </div>
-          <div className="relative group mb-12 w-full">
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className={`${getTextStyle('heroParagraph', 'text-slate-400 leading-relaxed text-lg md:text-2xl max-w-2xl font-medium')} ${getHighlightClass('heroParagraph')} block`}
-            >
-              {getText('heroParagraph', '장면의 몰입도를 설계하는 영상 촬영자')}
-            </motion.p>
-            {renderInlineEditor('heroParagraph')}
+          <div className="mb-12 w-full">
+            {renderInlineEditable(
+              'heroParagraph',
+              '장면의 몰입도를 설계하는 영상 촬영자',
+              'text-slate-400 leading-relaxed text-lg md:text-2xl max-w-2xl font-medium',
+              (classes, highlight, text) => (
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className={`${classes} ${highlight} block`}
+                >
+                  {text}
+                </motion.p>
+              )
+            )}
           </div>
 
           <div className="flex flex-wrap gap-6 pt-4">
             <div className="relative group">
               <Button 
                 onClick={() => document.getElementById('works')?.scrollIntoView({ behavior: 'smooth' })}
-                className={`liquid-glass hover:bg-white/10 text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl transition-all shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/30 overflow-hidden ${getHighlightClass('heroBtnWorks')}`}
+                className={`liquid-glass hover:bg-white/10 text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl transition-all shadow-[0_20px_40px_rgba(0,0,0,0.4)] border border-white/30 overflow-hidden`}
               >
-                <span className={`${getTextStyle('heroBtnWorks', 'font-black tracking-[0.2em] text-sm md:text-base')}`}>
-                  {getText('heroBtnWorks', 'View Works')}
-                </span>
+                {renderInlineEditable(
+                  'heroBtnWorks',
+                  'View Works',
+                  'font-black tracking-[0.2em] text-sm md:text-base bg-transparent border-0 text-center',
+                  (classes, highlight, text) => (
+                    <span className={`${classes} ${highlight}`}>
+                      {text}
+                    </span>
+                  )
+                )}
               </Button>
-              {renderInlineEditor('heroBtnWorks')}
             </div>
             <div className="relative group">
               <Button 
                 onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
-                className={`liquid-glass bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl border border-white/10 transition-all overflow-hidden ${getHighlightClass('heroBtnMore')}`}
+                className={`liquid-glass bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-black tracking-[0.2em] text-sm md:text-base px-10 md:px-14 py-7 h-auto rounded-2xl border border-white/10 transition-all overflow-hidden`}
               >
-                <span className={`${getTextStyle('heroBtnMore', 'font-black tracking-[0.2em] text-sm md:text-base')}`}>
-                  {getText('heroBtnMore', 'Discover More')}
-                </span>
+                {renderInlineEditable(
+                  'heroBtnMore',
+                  'Discover More',
+                  'font-black tracking-[0.2em] text-sm md:text-base bg-transparent border-0 text-center',
+                  (classes, highlight, text) => (
+                    <span className={`${classes} ${highlight}`}>
+                      {text}
+                    </span>
+                  )
+                )}
               </Button>
-              {renderInlineEditor('heroBtnMore')}
             </div>
           </div>
         </div>
@@ -572,46 +654,80 @@ export default function Portfolio({
             {/* Left Column: Introduction & Vision */}
             <div className="space-y-16">
               <div className="relative pb-10 border-b border-white/5">
-                <div className="relative group w-full">
-                  <motion.h2 
-                    initial={{ y: 20, opacity: 0 }}
-                    whileInView={{ y: 0, opacity: 1 }}
-                    className={`${getTextStyle('aboutName', 'text-5xl md:text-7xl font-black text-white tracking-tighter mb-4')} ${getHighlightClass('aboutName')} block`}
-                  >
-                    {getText('aboutName', data.name)}
-                  </motion.h2>
-                  {renderInlineEditor('aboutName')}
+                <div className="w-full">
+                  {renderInlineEditable(
+                    'aboutName',
+                    data.name,
+                    'text-5xl md:text-7xl font-black text-white tracking-tighter mb-4',
+                    (classes, highlight, text) => (
+                      <motion.h2 
+                        initial={{ y: 20, opacity: 0 }}
+                        whileInView={{ y: 0, opacity: 1 }}
+                        className={`${classes} ${highlight} block`}
+                      >
+                        {text}
+                      </motion.h2>
+                    )
+                  )}
                 </div>
-                <div className="relative group w-full mt-4 flex items-center">
+                <div className="mt-4 flex items-center">
                   <div className="w-8 h-[2px] bg-violet-500 mr-4 flex-shrink-0" />
-                  <p className={`${getTextStyle('aboutRole', 'text-violet-500 text-sm md:text-base font-black tracking-[0.5em]')} ${getHighlightClass('aboutRole')} flex-1`}>
-                    {getText('aboutRole', data.role)}
-                  </p>
-                  {renderInlineEditor('aboutRole')}
+                  <div className="flex-1">
+                    {renderInlineEditable(
+                      'aboutRole',
+                      data.role,
+                      'text-violet-500 text-sm md:text-base font-black tracking-[0.5em]',
+                      (classes, highlight, text) => (
+                        <p className={`${classes} ${highlight}`}>
+                          {text}
+                        </p>
+                      )
+                    )}
+                  </div>
                 </div>
               </div>
  
               <div className="space-y-8">
-                <div className="relative group flex items-center gap-4">
-                  <h4 className={`${getTextStyle('aboutVisionHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} ${getHighlightClass('aboutVisionHeader')}`}>
-                    {getText('aboutVisionHeader', 'Vision')}
-                  </h4>
-                  {renderInlineEditor('aboutVisionHeader')}
+                <div className="flex items-center gap-4">
+                  <div>
+                    {renderInlineEditable(
+                      'aboutVisionHeader',
+                      'Vision',
+                      'text-violet-500 text-xs font-black tracking-[0.3em]',
+                      (classes, highlight, text) => (
+                        <h4 className={`${classes} ${highlight}`}>
+                          {text}
+                        </h4>
+                      )
+                    )}
+                  </div>
                   <div className="h-[1px] flex-1 bg-white/5" />
                 </div>
                 
-                <div className="relative group w-full">
-                  <p className={`${getTextStyle('aboutHeadline', 'text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter')} ${getHighlightClass('aboutHeadline')} block`}>
-                    {getText('aboutHeadline', data.aboutHeadline)}
-                  </p>
-                  {renderInlineEditor('aboutHeadline')}
+                <div className="w-full">
+                  {renderInlineEditable(
+                    'aboutHeadline',
+                    data.aboutHeadline,
+                    'text-3xl md:text-5xl font-black text-white leading-tight tracking-tighter',
+                    (classes, highlight, text) => (
+                      <p className={`${classes} ${highlight} block`}>
+                        {text}
+                      </p>
+                    )
+                  )}
                 </div>
                 
-                <div className="relative group w-full">
-                  <p className={`${getTextStyle('aboutDescription', 'text-zinc-400 text-lg md:text-xl leading-relaxed font-bold border-l-2 border-violet-500/30 pl-6')} ${getHighlightClass('aboutDescription')} block`}>
-                    {getText('aboutDescription', data.about)}
-                  </p>
-                  {renderInlineEditor('aboutDescription')}
+                <div className="w-full">
+                  {renderInlineEditable(
+                    'aboutDescription',
+                    data.about,
+                    'text-zinc-400 text-lg md:text-xl leading-relaxed font-bold border-l-2 border-violet-500/30 pl-6',
+                    (classes, highlight, text) => (
+                      <p className={`${classes} ${highlight} block`}>
+                        {text}
+                      </p>
+                    )
+                  )}
                 </div>
               </div>
  
@@ -625,18 +741,32 @@ export default function Portfolio({
                   <Activity className="w-16 h-16 text-violet-500" />
                 </div>
                 
-                <div className="relative group flex items-center gap-4 mb-6">
-                  <h4 className={`${getTextStyle('aboutGoalHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} ${getHighlightClass('aboutGoalHeader')}`}>
-                    {getText('aboutGoalHeader', 'Core Goal')}
-                  </h4>
-                  {renderInlineEditor('aboutGoalHeader')}
+                <div className="flex items-center gap-4 mb-6">
+                  <div>
+                    {renderInlineEditable(
+                      'aboutGoalHeader',
+                      'Core Goal',
+                      'text-violet-500 text-xs font-black tracking-[0.3em]',
+                      (classes, highlight, text) => (
+                        <h4 className={`${classes} ${highlight}`}>
+                          {text}
+                        </h4>
+                      )
+                    )}
+                  </div>
                 </div>
                 
-                <div className="relative group w-full z-10">
-                  <p className={`${getTextStyle('aboutGoal', 'text-zinc-300 text-xl font-bold italic leading-relaxed')} ${getHighlightClass('aboutGoal')} block`}>
-                    "{getText('aboutGoal', data.goal)}"
-                  </p>
-                  {renderInlineEditor('aboutGoal')}
+                <div className="w-full z-10">
+                  {renderInlineEditable(
+                    'aboutGoal',
+                    data.goal,
+                    'text-zinc-300 text-xl font-bold italic leading-relaxed',
+                    (classes, highlight, text) => (
+                      <p className={`${classes} ${highlight} block`}>
+                        "{text}"
+                      </p>
+                    )
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -644,11 +774,19 @@ export default function Portfolio({
             {/* Right Column: Experience Resume */}
             <div className="space-y-16">
               <div className="space-y-12">
-                <div className="relative group flex items-center gap-4">
-                  <h5 className={`${getTextStyle('experienceHeader', 'text-violet-500 text-xs font-black tracking-[0.3em]')} ${getHighlightClass('experienceHeader')}`}>
-                    {getText('experienceHeader', data.sectionTitles?.experience || 'Experience Journey')}
-                  </h5>
-                  {renderInlineEditor('experienceHeader')}
+                <div className="flex items-center gap-4">
+                  <div>
+                    {renderInlineEditable(
+                      'experienceHeader',
+                      data.sectionTitles?.experience || 'Experience Journey',
+                      'text-violet-500 text-xs font-black tracking-[0.3em]',
+                      (classes, highlight, text) => (
+                        <h5 className={`${classes} ${highlight}`}>
+                          {text}
+                        </h5>
+                      )
+                    )}
+                  </div>
                   <div className="h-[1px] flex-1 bg-white/5" />
                 </div>
                 
@@ -697,18 +835,32 @@ export default function Portfolio({
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-24 gap-8">
             <div>
-              <div className="relative group flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-4 mb-4">
                  <div className="w-12 h-[1px] bg-violet-500" />
-                 <h2 className={`${getTextStyle('worksTagline', 'text-violet-500 text-xs font-bold tracking-[0.3em]')} ${getHighlightClass('worksTagline')}`}>
-                   {getText('worksTagline', 'Showcase')}
-                 </h2>
-                 {renderInlineEditor('worksTagline')}
+                 <div>
+                   {renderInlineEditable(
+                     'worksTagline',
+                     'Showcase',
+                     'text-violet-500 text-xs font-bold tracking-[0.3em]',
+                     (classes, highlight, text) => (
+                       <h2 className={`${classes} ${highlight}`}>
+                         {text}
+                       </h2>
+                     )
+                   )}
+                 </div>
               </div>
-              <div className="relative group w-full mb-12">
-                <h3 className={`${getTextStyle('worksHeader', 'text-4xl md:text-6xl font-bold text-white tracking-tighter')} ${getHighlightClass('worksHeader')} block`}>
-                  {getText('worksHeader', data.sectionTitles?.works || 'Activity History')}
-                </h3>
-                {renderInlineEditor('worksHeader')}
+              <div className="w-full mb-12">
+                {renderInlineEditable(
+                  'worksHeader',
+                  data.sectionTitles?.works || 'Activity History',
+                  'text-4xl md:text-6xl font-bold text-white tracking-tighter',
+                  (classes, highlight, text) => (
+                    <h3 className={`${classes} ${highlight} block`}>
+                      {text}
+                    </h3>
+                  )
+                )}
               </div>
             </div>
           </div>
